@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SISU T1 — 세션</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+/* ── 커스텀 커서 — CSS 방식, 딜레이 없음 ── */
+*,*::before,*::after{cursor:url('cursor.svg') 0 0,auto !important;}
+:root{
+  --bg:#0f0f13;--surface:#1a1a22;--border:#2e2e3e;
+  --accent:#7C6CFC;--accent-soft:rgba(124,108,252,.12);
+  --text:#e8e8f0;--text-muted:#888899;
+  --green:#4ade80;--yellow:#fbbf24;
+  --radius:10px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',Arial,sans-serif;}
+#topbar{height:48px;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;}
+.logo{font-size:13px;font-weight:600;color:var(--accent);white-space:nowrap;}
+.sep{color:var(--border);font-size:18px;}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;}
+.status-dot.active{background:var(--green);box-shadow:0 0 6px var(--green);}
+#status-label{font-size:12px;color:var(--text-muted);}
+.spacer{flex:1;}
+#task-indicator{font-size:11px;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;white-space:nowrap;}
+#log-count{font-size:11px;color:var(--text-muted);}
+#url-bar{display:none;}
+#split-wrap{display:flex;height:calc(100vh - 48px);}
+#proto-pane{flex:1;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#survey-pane{display:none;flex-direction:column;overflow:hidden;}
+.pane-label{font-size:11px;color:var(--text-muted);padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.pane-label strong{font-weight:500;color:var(--text);}
+#proto-frame,#survey-frame{flex:1;border:none;background:#fff;}
+#proto-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-muted);font-size:14px;text-align:center;padding:24px;}
+#proto-placeholder .icon{font-size:36px;opacity:.4;}
+#hesitation-ring{position:absolute;width:44px;height:44px;border-radius:50%;border:2px solid var(--yellow);opacity:0;transform:translate(-50%,-50%);pointer-events:none;transition:opacity .3s;z-index:20;}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-size:13px;color:var(--text);opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap;}
+#toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">SISU · T1 세션</div>
+  <div class="sep">|</div>
+  <div class="status-dot" id="status-dot"></div>
+  <div id="status-label">대기 중</div>
+  <div class="spacer"></div>
+  <div id="task-indicator">Task —</div>
+  <div id="log-count">로그 0건</div>
+</div>
+
+<div id="url-bar">
+  <label for="proto-url">프로토타입 URL</label>
+  <input id="proto-url" type="text" placeholder="https://ilujh0507.github.io/sisu-t1/CLUX_standalone.html">
+  <button id="load-btn">불러오기</button>
+</div>
+
+<div id="split-wrap">
+  <div id="proto-pane">
+    <div class="pane-label">
+      <strong>프로토타입</strong>
+      <span id="proto-url-label" style="font-size:10px;"></span>
+    </div>
+    <div id="proto-placeholder">
+      <div class="icon">⬡</div>
+      <div>프로토타입 로딩 중...</div>
+    </div>
+    <iframe id="proto-frame" style="display:none;" allow="same-origin"></iframe>
+    <div id="hesitation-ring"></div>
+  </div>
+  <div id="survey-pane">
+    <div class="pane-label">
+      <strong>설문</strong>
+      <span style="font-size:10px;">프로토타입 완료 후 자동 전환</span>
+    </div>
+    <iframe id="survey-frame" src="about:blank"></iframe>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const PROTO_URL='https://ilujh0507.github.io/sisu-t1/CLUX_standalone.html';
+
+const FB={apiKey:"AIzaSyCoCG6FIxrt7rJ_WI8Rsrk-A2ueOQeuopU",authDomain:"sisu-t1-survey.firebaseapp.com",databaseURL:"https://sisu-t1-survey-default-rtdb.firebaseio.com",projectId:"sisu-t1-survey",storageBucket:"sisu-t1-survey.firebasestorage.app",messagingSenderId:"338910893000",appId:"1:338910893000:web:517b459a9bf3ec1f1426fd"};
+firebase.initializeApp(FB);
+const db=firebase.database();
+function dbRef(p){return db.ref(p);}
+
+let SESSION_ID=null,sessionRef=null,logCount=0,sessionActive=false;
+let participantName='',protoLoaded=false,lastTaskName='—';
+let hesitationTimer=null,lastMouseLog=0;
+const HESITATION_MS=2000,MOUSE_THROTTLE_MS=500;
+
+window.addEventListener('DOMContentLoaded',function(){
+  document.getElementById('proto-url').value=PROTO_URL;
+  loadProto();
+});
+
+function toast(msg,ms=2500){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+function saveLog(type,data){
+  if(!sessionRef||!sessionActive)return;
+  sessionRef.child('logs').push(Object.assign({type,ts:new Date().toISOString(),task:lastTaskName},data));
+  document.getElementById('log-count').textContent='로그 '+(++logCount)+'건';
+}
+
+function saveTempLog(type,data){
+  if(!sessionRef||!sessionActive)return;
+  sessionRef.child('temp').push(Object.assign({type,ts:new Date().toISOString(),task:lastTaskName},data));
+}
+
+function startSession(name){
+  if(sessionActive)return;
+  participantName=name;
+  SESSION_ID='sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
+  sessionRef=dbRef('sessions/'+SESSION_ID);
+  sessionRef.set({participantName,startedAt:new Date().toISOString(),status:'active',protoUrl:PROTO_URL,phase:'proto'});
+  sessionRef.onDisconnect().update({status:'disconnected',endedAt:new Date().toISOString()});
+  dbRef('live/'+SESSION_ID).set({participantName,startedAt:new Date().toISOString(),status:'active',phase:'proto'});
+  dbRef('live/'+SESSION_ID).onDisconnect().update({status:'disconnected',endedAt:new Date().toISOString()});
+  sessionActive=true;
+  document.getElementById('status-dot').classList.add('active');
+  document.getElementById('status-label').textContent=participantName+' 진행 중';
+  saveLog('session_start',{participantName});
+  toast('세션 시작: '+participantName);
+  if(protoLoaded)initProtoTracking();
+}
+
+function switchToSurvey(){
+  if(!sessionActive)return;
+  saveLog('proto_completed',{ts:new Date().toISOString()});
+  sessionRef.update({protoCompletedAt:new Date().toISOString(),phase:'survey'});
+  dbRef('live/'+SESSION_ID).update({phase:'survey',protoCompletedAt:new Date().toISOString()});
+  document.getElementById('proto-pane').style.display='none';
+  const sp=document.getElementById('survey-pane');
+  sp.style.display='flex';sp.style.flex='1';
+  const sf=document.getElementById('survey-frame');
+  if(!sf.src||sf.src==='about:blank')
+    sf.src='sisu-t1-survey.html?name='+encodeURIComponent(participantName)+'&session='+SESSION_ID+'&embedded=1';
+  document.getElementById('task-indicator').textContent='설문 진행 중';
+  toast('✅ 프로토타입 완료 — 설문으로 이동합니다');
+}
+
+/* ── 프로토타입 불러오기 ── */
+document.getElementById('load-btn').addEventListener('click',loadProto);
+document.getElementById('proto-url').addEventListener('keydown',function(e){if(e.key==='Enter')loadProto();});
+function loadProto(){
+  const url=document.getElementById('proto-url').value.trim();
+  if(!url){toast('URL을 입력해주세요.');return;}
+  const frame=document.getElementById('proto-frame');
+  frame.src=url;frame.style.display='block';
+  document.getElementById('proto-placeholder').style.display='none';
+  document.getElementById('proto-url-label').textContent=url;
+  protoLoaded=true;
+  frame.addEventListener('load',function(){
+    try{
+      const fdoc=frame.contentDocument||frame.contentWindow.document;
+      const s=fdoc.createElement('style');
+      s.textContent='*,*::before,*::after{cursor:url("cursor.svg") 0 0,auto !important;}';
+      fdoc.head.appendChild(s);
+    }catch(e){}
+    if(sessionActive)initProtoTracking();
+    toast('프로토타입 로드 완료');
+  },{once:true});
+}
+
+/* ── 이벤트 추적 ── */
+function initProtoTracking(){
+  const frame=document.getElementById('proto-frame');
+  try{
+    const fdoc=frame.contentDocument||frame.contentWindow.document;
+    const fwin=frame.contentWindow;
+    const ring=document.getElementById('hesitation-ring');
+    const rect=frame.getBoundingClientRect();
+
+    fdoc.addEventListener('mousemove',function(e){
+      const now=Date.now();
+      const x=Math.round(e.clientX),y=Math.round(e.clientY);
+      clearTimeout(hesitationTimer);ring.style.opacity='0';
+      hesitationTimer=setTimeout(function(){
+        saveLog('hesitation',{x,y,durationMs:HESITATION_MS});
+        ring.style.left=(rect.left+x)+'px';ring.style.top=(rect.top+y)+'px';
+        ring.style.opacity='1';
+        setTimeout(()=>ring.style.opacity='0',1500);
+      },HESITATION_MS);
+      if(now-lastMouseLog>MOUSE_THROTTLE_MS){lastMouseLog=now;saveLog('mouse_move',{x,y});}
+    });
+
+    fdoc.addEventListener('click',function(e){
+      const el=e.target;
+      saveLog('click',{tag:el.tagName.toLowerCase(),id:el.id||'',text:(el.textContent||'').trim().slice(0,60),x:Math.round(e.clientX),y:Math.round(e.clientY)});
+    });
+
+    fdoc.addEventListener('change',function(e){
+      const el=e.target;
+      saveLog('change',{tag:el.tagName.toLowerCase(),id:el.id||el.name||'',value:String(el.type==='checkbox'?el.checked:el.value).slice(0,100)});
+    });
+
+    const inputTimers={};
+    fdoc.addEventListener('input',function(e){
+      const el=e.target;const id=el.id||el.name||'input';
+      if(!inputTimers[id])saveLog('input_start',{id});
+      clearTimeout(inputTimers[id]);
+      inputTimers[id]=setTimeout(function(){
+        saveLog('input_done',{id,charCount:(el.value||'').length});
+        delete inputTimers[id];
+      },1000);
+    });
+
+    let lastHref=fwin.location.href;
+    setInterval(function(){
+      try{
+        const cur=fwin.location.href;
+        if(cur!==lastHref){saveLog('page_change',{from:lastHref,to:cur});lastHref=cur;}
+      }catch(e){}
+    },500);
+
+    saveLog('tracking_start',{});
+    toast('로그 추적 시작');
+  }catch(e){
+    toast('⚠ 로그 추적 불가 — 다른 도메인입니다',3000);
+  }
+}
+
+window.addEventListener('message',function(e){
+  if(!e.data||typeof e.data!=='object')return;
+  if(e.data.type==='CLUX_PARTICIPANT_NAME'&&e.data.name) startSession(e.data.name);
+  if(e.data.type==='survey_submitted'){
+    saveLog('survey_completed',{ts:new Date().toISOString()});
+    sessionRef&&sessionRef.update({surveyCompletedAt:new Date().toISOString(),phase:'done'});
+    if(SESSION_ID)dbRef('live/'+SESSION_ID).update({phase:'done',status:'submitted'});
+    toast('설문 제출 완료');
+  }
+  if(e.data.type==='CLUX_GO_SURVEY'||e.data.type==='go_survey'||e.data.type==='proto_complete'){
+    if(e.data.protoResult&&sessionRef){
+      sessionRef.update({protoResult:e.data.protoResult});
+      if(SESSION_ID)dbRef('live/'+SESSION_ID).update({protoResult:e.data.protoResult});
+    }
+    switchToSurvey();
+  }
+  if(e.data.type==='CLUX_TASK_CHANGE'){
+    const tid=e.data.taskId||e.data.task||'';
+    const label=e.data.taskLabel||tid;
+    const num=String(tid).replace(/[^0-9]/g,'');
+    const t=num?'Task '+num:String(tid);
+    if(t&&t!==lastTaskName){
+      lastTaskName=t;
+      document.getElementById('task-indicator').textContent=label||t;
+      saveLog('task_change',{task:t,taskId:tid,label:label});
+      toast('📍 '+(label||t));
+    }
+  }
+  if(e.data.type==='CLUX_TASK_DONE'&&sessionRef){
+    const key='taskResult_'+e.data.taskId;
+    const d={};d[key]=Object.assign({savedAt:new Date().toISOString()},e.data.data||{});
+    sessionRef.update(d);
+    if(SESSION_ID)dbRef('live/'+SESSION_ID+'/taskProgress').update({[e.data.taskId]:Object.assign({savedAt:new Date().toISOString()},e.data.data||{})});
+  }
+  if(e.data.type==='CLUX_EVENT'){
+    if(e.data.eventType==='click') saveLog('click',{x:Math.round(e.data.x||0),y:Math.round(e.data.y||0)});
+    if(e.data.eventType==='hesitation') saveLog('hesitation',{x:Math.round(e.data.x||0),y:Math.round(e.data.y||0)});
+  }
+});
+
+window.addEventListener('beforeunload',function(){
+  if(sessionRef&&sessionActive){
+    sessionRef.update({status:'ended',endedAt:new Date().toISOString()});
+    sessionRef.child('temp').remove();
+    if(SESSION_ID)dbRef('live/'+SESSION_ID).update({status:'disconnected',endedAt:new Date().toISOString()});
+  }
+});
+</script>
+</body>
+</html>
