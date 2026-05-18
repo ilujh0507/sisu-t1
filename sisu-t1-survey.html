@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SISU Team 1 — 설문</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+:root{--bg:#0f0f11;--surface:#1a1a1f;--border:#2a2a32;--accent:#7c6cfc;--accent-soft:rgba(124,108,252,0.12);--text:#e8e8f0;--text-muted:#7a7a8c;--success:#4ade80;--green:#4ade80;--yellow:#fbbf24;--radius:16px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:40px 20px 100px;font-size:16px;}
+.header{text-align:center;margin-bottom:48px;}
+.header .lbl{font-family:'DM Mono',monospace;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+.header h1{font-size:24px;font-weight:500;line-height:1.4;}
+.header p{margin-top:10px;font-size:15px;color:var(--text-muted);line-height:1.7;}
+.session-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 22px;margin-bottom:36px;display:flex;align-items:center;gap:12px;font-size:14px;color:var(--text-muted);}
+.name-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px;margin-bottom:18px;}
+.name-label{display:block;font-size:14px;font-weight:500;margin-bottom:8px;color:var(--text);}
+.name-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:15px;outline:none;transition:border-color .15s;}
+.name-input:focus{border-color:var(--accent);}
+.name-input::placeholder{color:var(--text-muted);}
+.name-help{font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:8px;}
+
+.s-dot{width:9px;height:9px;border-radius:50%;background:var(--success);flex-shrink:0;box-shadow:0 0 8px var(--success);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.section-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:24px;}
+.sec-tag{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+.sec-title{font-size:17px;font-weight:500;margin-bottom:28px;}
+.question{margin-bottom:36px;}
+.question:last-child{margin-bottom:0;}
+.q-text{font-size:15px;line-height:1.7;margin-bottom:18px;}
+.q-num{font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted);margin-right:8px;}
+.likert{display:flex;flex-direction:column;gap:10px;}
+.likert-labels{display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);padding:0 2px;margin-bottom:6px;}
+.likert-opts{display:flex;gap:10px;}
+.l-opt{flex:1;position:relative;}
+.l-opt input[type=radio]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;z-index:1;}
+.l-opt label{display:flex;align-items:center;justify-content:center;height:56px;border:1.5px solid var(--border);border-radius:10px;font-size:17px;font-weight:500;color:var(--text-muted);cursor:pointer;transition:all .15s;user-select:none;}
+.l-opt input:checked+label{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+.l-opt label:hover{border-color:var(--accent);color:var(--text);}
+.text-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:15px;resize:vertical;min-height:90px;outline:none;transition:border-color .15s;}
+.text-input:focus{border-color:var(--accent);}
+.text-input::placeholder{color:var(--text-muted);}
+.ab-choice{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.ab-opt{position:relative;}
+.ab-opt input[type=radio]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;z-index:1;}
+.ab-opt label{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;border:2px solid var(--border);border-radius:14px;cursor:pointer;transition:all .18s;text-align:center;gap:6px;min-height:100px;}
+.ab-opt label .ab-main{font-size:22px;font-weight:700;color:var(--text-muted);}
+.ab-opt label .ab-sub{font-size:12px;font-weight:400;color:var(--text-muted);opacity:.7;line-height:1.4;max-width:160px;}
+.ab-opt input:checked+label{border-color:var(--accent);background:var(--accent-soft);}
+.ab-opt input:checked+label .ab-main{color:var(--accent);}
+.ab-opt input:checked+label .ab-sub{color:var(--accent);opacity:.8;}
+.ab-opt label:hover{border-color:var(--accent);}
+.divider{height:1px;background:var(--border);margin:32px 0;}
+.submit-btn{width:100%;padding:18px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'Noto Sans KR',sans-serif;font-size:16px;font-weight:500;cursor:pointer;transition:opacity .15s;margin-top:14px;}
+.submit-btn:hover{opacity:.88;}
+.submit-btn:disabled{opacity:.4;cursor:not-allowed;}
+.complete-screen{display:none;text-align:center;padding:80px 20px;}
+.complete-screen.show{display:block;}
+.complete-icon{font-size:52px;margin-bottom:24px;}
+.complete-screen h2{font-size:22px;font-weight:500;margin-bottom:12px;}
+.complete-screen p{font-size:15px;color:var(--text-muted);line-height:1.7;}
+#survey-form.hidden{display:none;}
+.loading{text-align:center;padding:40px;color:var(--text-muted);font-size:15px;}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:14px 18px;font-size:14px;color:#f87171;margin-bottom:18px;display:none;}
+
+/* 객관식 (choice) */
+.choice-opts{display:flex;flex-direction:column;gap:10px;}
+.c-opt{position:relative;}
+.c-opt input[type=radio]{position:absolute;opacity:0;width:0;height:0;}
+.c-label{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border:1.5px solid var(--border);border-radius:12px;cursor:pointer;transition:all .15s;line-height:1.5;}
+.c-opt input[type=radio]:checked+.c-label{border-color:var(--accent);background:var(--accent-soft);}
+.c-label:hover{border-color:var(--accent);}
+.c-mark{width:18px;height:18px;border-radius:50%;border:2px solid var(--text-muted);flex-shrink:0;margin-top:2px;transition:all .15s;position:relative;}
+.c-opt input[type=radio]:checked+.c-label .c-mark{border-color:var(--accent);background:var(--accent);}
+.c-opt input[type=radio]:checked+.c-label .c-mark::after{content:'';position:absolute;width:6px;height:6px;background:#fff;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);}
+.c-txt{font-size:14px;color:var(--text);}
+.c-opt input[type=radio]:checked+.c-label .c-txt{color:var(--accent);}
+.c-other-input{width:100%;margin-top:8px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;outline:none;transition:border-color .15s;}
+.c-other-input:focus{border-color:var(--accent);}
+@media(min-width:768px){
+  body{padding:48px 0 100px;}
+  .header,.name-card,.session-bar,.error-msg,#loading,#survey-form,.complete-screen{
+    max-width:680px;margin-left:auto;margin-right:auto;
+  }
+  .section-card{padding:40px;}
+  .ab-choice{gap:20px;}
+  .ab-opt label{min-height:120px;padding:32px 24px;}
+  .ab-opt label .ab-main{font-size:26px;}
+  .ab-opt label .ab-sub{font-size:13px;}
+  .likert-opts{gap:12px;}
+  .l-opt label{height:64px;font-size:19px;}
+  .submit-btn{font-size:17px;padding:20px;}
+}
+
+/* ══ Mobile(767px 이하) ══ */
+@media(max-width:767px){
+  body{padding:28px 14px 80px;}
+  .header h1{font-size:20px;}
+  .header p{font-size:14px;}
+  .section-card{padding:22px 18px;}
+  .q-text{font-size:14px;}
+  .l-opt label{height:50px;font-size:16px;border-radius:8px;}
+  .likert-opts{gap:7px;}
+  .likert-labels{font-size:11px;}
+  .ab-choice{gap:10px;}
+  .ab-opt label{min-height:88px;padding:20px 10px;border-radius:12px;}
+  .ab-opt label .ab-main{font-size:20px;}
+  .ab-opt label .ab-sub{font-size:11px;}
+  .submit-btn{font-size:15px;padding:16px;}
+  .divider{margin:24px 0;}
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="lbl">SISU · Team 1</div>
+  <h1>경험 프로토타이핑 설문</h1>
+  <p>모든 응답은 연구 목적으로만 활용됩니다.</p>
+</div>
+
+<div class="name-card" id="respondent-card">
+  <label class="name-label" for="respondent-name">이름</label>
+  <input class="name-input" id="respondent-name" type="text" maxlength="40" autocomplete="name" placeholder="이름을 입력해주세요">
+</div>
+<div class="session-bar">
+  <div class="s-dot"></div>
+  <span id="session-label">연결 중...</span>
+</div>
+<div class="error-msg" id="error-msg"></div>
+<div id="loading" class="loading">설문을 불러오는 중...</div>
+<div id="survey-form" class="hidden"></div>
+<div class="complete-screen" id="complete-screen">
+  <div class="complete-icon">🎉</div>
+  <h2>응답 완료!</h2>
+  <p>바쁜 시간 내어 꼼꼼히 답해주셔서 진심으로 감사드립니다.<br>
+  덕분에 연구가 한 걸음 더 나아갈 수 있게 됐어요.<br>
+  <span style="font-size:14px;opacity:.7;margin-top:10px;display:block;">여러분의 소중한 경험이 더 나은 UX를 만드는 데 쓰입니다 ✨</span></p>
+</div>
+
+<!-- Firebase v8 compat — import 없이 동작, 로컬/모바일 모두 호환 -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+const FB={apiKey:"AIzaSyCoCG6FIxrt7rJ_WI8Rsrk-A2ueOQeuopU",authDomain:"sisu-t1-survey.firebaseapp.com",databaseURL:"https://sisu-t1-survey-default-rtdb.firebaseio.com",projectId:"sisu-t1-survey",storageBucket:"sisu-t1-survey.firebasestorage.app",messagingSenderId:"338910893000",appId:"1:338910893000:web:517b459a9bf3ec1f1426fd"};
+firebase.initializeApp(FB);
+const db=firebase.database();
+function dbRef(p){return db.ref(p);}
+function onValue(r,cb){r.on('value',cb);}
+function onValueOnce(r,cb){r.once('value',cb);}
+function push(r){return r.push();}
+function set(r,v){return r.set(v);}
+function update(r,v){return r.update(v);}
+function remove(r){return r.remove();}
+function onDisconnect(r){return r.onDisconnect();}
+
+const SESSION_ID='live_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
+const liveRef=dbRef('live/'+SESSION_ID);
+
+// URL 파라미터로 이름·세션 수신 (통합 html에서 호출 시)
+const _urlParams=new URLSearchParams(window.location.search);
+const _urlName=_urlParams.get('name')||'';
+const _urlSession=_urlParams.get('session')||'';
+const _embedded=_urlParams.get('embedded')==='1';
+
+// 세션 시작 & 이탈 감지
+set(liveRef,{startedAt:new Date().toISOString(),status:'active',respondentName:_urlName,answers:{},embeddedSession:_urlSession||''});
+onDisconnect(liveRef).remove();
+
+const sessLabel=document.getElementById('session-label');
+const respondentNameEl=document.getElementById('respondent-name');
+const respondentCard=document.getElementById('respondent-card');
+const loadingEl=document.getElementById('loading');
+const formEl=document.getElementById('survey-form');
+const completeEl=document.getElementById('complete-screen');
+const errorEl=document.getElementById('error-msg');
+
+// 통합 html에서 호출된 경우 이름 입력 칸 숨김
+if(_embedded && _urlName){
+  if(respondentCard) respondentCard.style.display='none';
+}
+// URL로 이름 받은 경우 입력 필드에 자동 세팅
+if(_urlName && respondentNameEl) respondentNameEl.value=_urlName;
+
+let nameUpdateTimer=null;
+respondentNameEl?.addEventListener('input',function(){
+  clearTimeout(nameUpdateTimer);
+  nameUpdateTimer=setTimeout(function(){
+    update(liveRef,{respondentName:respondentNameEl.value.trim(),nameUpdatedAt:new Date().toISOString()});
+  },300);
+});
+
+let qMeta=null;
+let tasksMeta=[];
+
+// tasks 로드 (A/B 라벨용)
+onValueOnce(dbRef('tasks'),function(snap){if(snap.val())tasksMeta=snap.val();});
+
+// 설문 로드
+onValueOnce(dbRef('questions'),function(snap){
+  const data=snap.val();
+  loadingEl.style.display='none';
+  if(!data?.sections?.length){
+    formEl.classList.remove('hidden');
+    formEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:15px;">관리자가 설문을 설정 중입니다.<br>잠시 후 다시 시도해주세요.</div>';
+    sessLabel.textContent='설문 준비 중';return;
+  }
+  qMeta=data;
+  sessLabel.textContent='설문 준비 완료 · '+data.sections.length+'개 섹션';
+  renderForm(data);
+});
+
+function renderForm(data){
+  formEl.classList.remove('hidden');
+  var html='';
+  data.sections.forEach(function(sec,si){
+    html+='<div class="section-card">';
+    if(sec.tag)html+='<div class="sec-tag">'+sec.tag+'</div>';
+    if(sec.title)html+='<div class="sec-title">'+sec.title+'</div>';
+    sec.questions.forEach(function(q,qi){
+      html+='<div class="question"><div class="q-text"><span class="q-num">Q'+(qi+1)+'</span>'+q.text+'</div>';
+      if(q.type==='likert'){
+        var reversed=q.reversed||false;
+        var lblLeft=reversed?'매우 그렇다':'전혀 그렇지 않다';
+        var lblRight=reversed?'전혀 그렇지 않다':'매우 그렇다';
+        html+='<div class="likert"><div class="likert-labels"><span>'+lblLeft+'</span><span>'+lblRight+'</span></div><div class="likert-opts">';
+        for(var i=1;i<=5;i++){
+          html+='<div class="l-opt"><input type="radio" name="q_'+si+'_'+qi+'" value="'+i+'" id="q_'+si+'_'+qi+'_'+i+'" data-si="'+si+'" data-qi="'+qi+'" data-type="likert" data-qtext="'+encodeURIComponent(q.text)+'"><label for="q_'+si+'_'+qi+'_'+i+'">'+i+'</label></div>';
+        }
+        html+='</div></div>';
+      } else if(q.type==='ab'){
+        var task=Array.isArray(tasksMeta)?tasksMeta.find(function(t){return t.num===q.taskNum;}):null;
+        var lblA=task&&task.microA?task.microA.split('—')[0].trim():'A안';
+        var lblB=task&&task.microB?task.microB.split('—')[0].trim():'B안';
+        html+='<div class="ab-choice">'
+          +'<div class="ab-opt"><input type="radio" name="q_'+si+'_'+qi+'" value="A" id="q_'+si+'_'+qi+'_A" data-si="'+si+'" data-qi="'+qi+'" data-type="ab" data-qtext="'+encodeURIComponent(q.text)+'">'
+          +'<label for="q_'+si+'_'+qi+'_A"><span class="ab-main">A안</span><span class="ab-sub">'+(lblA.slice(0,40)+(lblA.length>40?'…':''))+'</span></label></div>'
+          +'<div class="ab-opt"><input type="radio" name="q_'+si+'_'+qi+'" value="B" id="q_'+si+'_'+qi+'_B" data-si="'+si+'" data-qi="'+qi+'" data-type="ab" data-qtext="'+encodeURIComponent(q.text)+'">'
+          +'<label for="q_'+si+'_'+qi+'_B"><span class="ab-main">B안</span><span class="ab-sub">'+(lblB.slice(0,40)+(lblB.length>40?'…':''))+'</span></label></div>'
+          +'</div>';
+      } else if(q.type==='choice'){
+        /* 객관식 — options 배열 + 기타(optional) */
+        var opts=Array.isArray(q.options)?q.options:[];
+        html+='<div class="choice-opts">';
+        opts.forEach(function(opt,oi){
+          html+='<div class="c-opt"><input type="radio" name="q_'+si+'_'+qi+'" value="'+encodeURIComponent(opt)+'" id="q_'+si+'_'+qi+'_'+oi+'" data-si="'+si+'" data-qi="'+qi+'" data-type="choice" data-qtext="'+encodeURIComponent(q.text)+'">'
+            +'<label for="q_'+si+'_'+qi+'_'+oi+'" class="c-label"><span class="c-mark"></span><span class="c-txt">'+opt+'</span></label></div>';
+        });
+        if(q.hasOther!==false){
+          html+='<div class="c-opt c-other-wrap"><input type="radio" name="q_'+si+'_'+qi+'" value="__other__" id="q_'+si+'_'+qi+'_other" data-si="'+si+'" data-qi="'+qi+'" data-type="choice" data-qtext="'+encodeURIComponent(q.text)+'">'
+            +'<label for="q_'+si+'_'+qi+'_other" class="c-label"><span class="c-mark"></span><span class="c-txt">기타</span></label>'
+            +'<input class="c-other-input" type="text" id="q_'+si+'_'+qi+'_other_text" placeholder="직접 입력..." style="display:none;" maxlength="200"></div>';
+        }
+        html+='</div>';
+      } else if(q.type==='text'){
+        html+='<textarea class="text-input" name="q_'+si+'_'+qi+'" data-si="'+si+'" data-qi="'+qi+'" data-type="text" data-qtext="'+encodeURIComponent(q.text)+'" placeholder="자유롭게 작성해주세요."></textarea>';
+      }
+      html+='</div>';
+      if(qi<sec.questions.length-1)html+='<div class="divider"></div>';
+    });
+    html+='</div>';
+  });
+  html+='<button class="submit-btn" id="submit-btn">제출하기</button>';
+  formEl.innerHTML=html;
+
+  // 기타 텍스트 입력 토글
+  formEl.querySelectorAll('.c-other-wrap input[type=radio]').forEach(function(inp){
+    inp.addEventListener('change',function(){
+      var wrap=inp.closest('.c-other-wrap');
+      var txt=wrap?wrap.querySelector('.c-other-input'):null;
+      if(txt)txt.style.display=inp.checked?'block':'none';
+    });
+  });
+  // 기타 외 선택 시 기타 텍스트 숨김
+  formEl.querySelectorAll('.choice-opts').forEach(function(group){
+    group.querySelectorAll('input[type=radio]').forEach(function(inp){
+      inp.addEventListener('change',function(){
+        if(inp.value!=='__other__'){
+          var wrap=group.querySelector('.c-other-input');
+          if(wrap)wrap.style.display='none';
+        }
+      });
+    });
+  });
+
+  // 실시간 라이브 스트리밍 (radio + choice + text)
+  formEl.querySelectorAll('input[type=radio]').forEach(function(inp){
+    inp.addEventListener('change',function(){
+      var k='s'+inp.dataset.si+'_q'+inp.dataset.qi;
+      var val=inp.value==='__other__'?'기타':decodeURIComponent(inp.value);
+      update(dbRef('live/'+SESSION_ID+'/answers/'+k),{question:decodeURIComponent(inp.dataset.qtext),type:inp.dataset.type,answer:val,changedAt:new Date().toISOString()});
+    });
+  });
+  var debounce={};
+  formEl.querySelectorAll('textarea,.c-other-input').forEach(function(ta){
+    ta.addEventListener('input',function(){
+      var si=ta.dataset?ta.dataset.si:null;var qi=ta.dataset?ta.dataset.qi:null;
+      if(!si&&!qi){
+        // c-other-input — find parent radio
+        var wrap=ta.closest('.c-other-wrap');
+        var radio=wrap?wrap.querySelector('input[type=radio]'):null;
+        if(radio&&radio.checked){
+          var k='s'+radio.dataset.si+'_q'+radio.dataset.qi;
+          clearTimeout(debounce[k]);
+          debounce[k]=setTimeout(function(){
+            update(dbRef('live/'+SESSION_ID+'/answers/'+k),{question:decodeURIComponent(radio.dataset.qtext),type:'choice',answer:'기타: '+ta.value,changedAt:new Date().toISOString()});
+          },500);
+        }
+        return;
+      }
+      var k='s'+si+'_q'+qi;
+      clearTimeout(debounce[k]);
+      debounce[k]=setTimeout(function(){
+        update(dbRef('live/'+SESSION_ID+'/answers/'+k),{question:decodeURIComponent(ta.dataset.qtext),type:'text',answer:ta.value,changedAt:new Date().toISOString()});
+      },500);
+    });
+  });
+  document.getElementById('submit-btn').addEventListener('click',submitForm);
+}
+
+function submitForm(){
+  if(!qMeta)return;
+  var btn=document.getElementById('submit-btn');
+  btn.disabled=true;btn.textContent='제출 중...';errorEl.style.display='none';
+  var respondentName=(respondentNameEl?respondentNameEl.value:'').trim();
+  if(!respondentName){
+    errorEl.textContent='이름을 입력해주세요.';errorEl.style.display='block';
+    btn.disabled=false;btn.textContent='제출하기';if(respondentNameEl)respondentNameEl.focus();return;
+  }
+  var answers={};var allOk=true;
+  qMeta.sections.forEach(function(sec,si){
+    sec.questions.forEach(function(q,qi){
+      var name='q_'+si+'_'+qi;
+      if(q.type==='text'){
+        var el=formEl.querySelector('textarea[name="'+name+'"]');
+        answers['s'+si+'_q'+qi]={question:q.text,type:'text',answer:el?el.value.trim():''};
+      } else if(q.type==='choice'){
+        var checked=formEl.querySelector('input[name="'+name+'"]:checked');
+        if(!checked&&q.required!==false){allOk=false;}
+        var ans=null;
+        if(checked){
+          if(checked.value==='__other__'){
+            var otherTxt=formEl.querySelector('#'+name+'_other_text');
+            ans='기타: '+(otherTxt?otherTxt.value.trim():'');
+          } else {
+            ans=decodeURIComponent(checked.value);
+          }
+        }
+        answers['s'+si+'_q'+qi]={question:q.text,type:'choice',answer:ans};
+      } else {
+        var checked2=formEl.querySelector('input[name="'+name+'"]:checked');
+        if(!checked2&&q.required!==false)allOk=false;
+        answers['s'+si+'_q'+qi]={question:q.text,type:q.type,answer:checked2?checked2.value:null};
+      }
+    });
+  });
+  if(!allOk){
+    errorEl.textContent='모든 문항에 응답해주세요.';errorEl.style.display='block';
+    btn.disabled=false;btn.textContent='제출하기';return;
+  }
+  var sid=SESSION_ID.replace('live_','');
+  var newRef=push(dbRef('responses'));
+  set(newRef,{respondentName:respondentName,answers:answers,submittedAt:new Date().toISOString(),sessionId:sid})
+  .then(function(){
+    return update(liveRef,{status:'submitted',respondentName:respondentName,submittedAt:new Date().toISOString()});
+  }).then(function(){
+    onDisconnect(liveRef).cancel();
+    setTimeout(function(){remove(liveRef);},3600000);
+    formEl.classList.add('hidden');completeEl.classList.add('show');
+  }).catch(function(){
+    errorEl.textContent='제출 중 오류가 발생했습니다. 다시 시도해주세요.';errorEl.style.display='block';
+    btn.disabled=false;btn.textContent='제출하기';
+  });
+}
+</script>
+</body>
+</html>
