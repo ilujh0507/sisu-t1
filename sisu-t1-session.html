@@ -8,132 +8,54 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
+/* ── 커스텀 커서 — CSS 방식, 딜레이 없음 ── */
+*,*::before,*::after{cursor:url('cursor.svg') 0 0,auto !important;}
 :root{
   --bg:#0f0f13;--surface:#1a1a22;--border:#2e2e3e;
   --accent:#7C6CFC;--accent-soft:rgba(124,108,252,.12);
   --text:#e8e8f0;--text-muted:#888899;
-  --green:#4ade80;--yellow:#fbbf24;--red:#f87171;
+  --green:#4ade80;--yellow:#fbbf24;
   --radius:10px;
 }
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',Arial,sans-serif;}
-
-/* ── 상단 바 ── */
-#topbar{
-  height:48px;display:flex;align-items:center;gap:12px;
-  padding:0 16px;background:var(--surface);
-  border-bottom:1px solid var(--border);flex-shrink:0;
-  position:relative;z-index:100;
-}
-#topbar .logo{font-size:13px;font-weight:600;color:var(--accent);white-space:nowrap;}
-#topbar .sep{color:var(--border);font-size:18px;}
+#topbar{height:48px;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;}
+.logo{font-size:13px;font-weight:600;color:var(--accent);white-space:nowrap;}
+.sep{color:var(--border);font-size:18px;}
 #name-input-wrap{display:flex;align-items:center;gap:8px;}
 #name-input-wrap label{font-size:12px;color:var(--text-muted);white-space:nowrap;}
-#participant-name{
-  background:var(--bg);border:1px solid var(--border);border-radius:6px;
-  padding:5px 10px;color:var(--text);font-size:13px;width:130px;outline:none;
-  transition:border-color .15s;
-}
+#participant-name{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:13px;width:130px;outline:none;transition:border-color .15s;}
 #participant-name:focus{border-color:var(--accent);}
-#start-btn{
-  background:var(--accent);color:#fff;border:none;border-radius:6px;
-  padding:6px 14px;font-size:13px;font-weight:500;cursor:pointer;
-  transition:opacity .15s;white-space:nowrap;
-}
-#start-btn:hover{opacity:.85;}
-#start-btn:disabled{opacity:.4;cursor:default;}
+#start-btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:500;transition:opacity .15s;white-space:nowrap;}
+#start-btn:hover{opacity:.85;}#start-btn:disabled{opacity:.4;}
 .status-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;}
 .status-dot.active{background:var(--green);box-shadow:0 0 6px var(--green);}
 #status-label{font-size:12px;color:var(--text-muted);}
 .spacer{flex:1;}
-#task-indicator{
-  font-size:11px;color:var(--text-muted);
-  background:var(--bg);border:1px solid var(--border);
-  border-radius:6px;padding:4px 10px;white-space:nowrap;
-}
+#task-indicator{font-size:11px;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;white-space:nowrap;}
 #log-count{font-size:11px;color:var(--text-muted);}
-
-/* ── 프로토타입 URL 입력 ── */
-#url-bar{
-  display:flex;align-items:center;gap:8px;
-  padding:8px 16px;background:var(--bg);
-  border-bottom:1px solid var(--border);flex-shrink:0;
-}
+#url-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
 #url-bar label{font-size:12px;color:var(--text-muted);white-space:nowrap;}
-#proto-url{
-  flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;
-  padding:6px 10px;color:var(--text);font-size:12px;outline:none;
-  transition:border-color .15s;
-}
+#proto-url{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;outline:none;transition:border-color .15s;}
 #proto-url:focus{border-color:var(--accent);}
-#load-btn{
-  background:var(--surface);border:1px solid var(--accent);color:var(--accent);
-  border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;
-  white-space:nowrap;transition:background .15s;
-}
+#load-btn{background:var(--surface);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:6px 12px;font-size:12px;white-space:nowrap;transition:background .15s;}
 #load-btn:hover{background:var(--accent-soft);}
-
-/* ── 분할 화면 ── */
-#split-wrap{
-  display:flex;flex:1;overflow:hidden;
-  height:calc(100vh - 48px - 40px);
-}
-#proto-pane{
-  flex:0 0 65%;border-right:1px solid var(--border);
-  display:flex;flex-direction:column;overflow:hidden;
-  position:relative;
-}
-#survey-pane{
-  flex:1;display:flex;flex-direction:column;overflow:hidden;
-}
-.pane-label{
-  font-size:11px;color:var(--text-muted);padding:6px 12px;
-  background:var(--surface);border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:8px;flex-shrink:0;
-}
-.pane-label span{font-weight:500;color:var(--text);}
-
-#proto-frame,#survey-frame{
-  flex:1;border:none;background:#fff;
-}
-#proto-placeholder{
-  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:12px;color:var(--text-muted);font-size:14px;
-}
+#split-wrap{display:flex;height:calc(100vh - 88px);}
+#proto-pane{flex:0 0 65%;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#survey-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.pane-label{font-size:11px;color:var(--text-muted);padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.pane-label strong{font-weight:500;color:var(--text);}
+#proto-frame,#survey-frame{flex:1;border:none;background:#fff;}
+#proto-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-muted);font-size:14px;text-align:center;padding:24px;}
 #proto-placeholder .icon{font-size:36px;opacity:.4;}
-
-/* ── 로그 오버레이 (마우스 추적 표시) ── */
-#mouse-overlay{
-  position:absolute;top:0;left:0;width:100%;height:100%;
-  pointer-events:none;z-index:10;
-}
-#cursor-dot{
-  position:absolute;width:12px;height:12px;border-radius:50%;
-  background:rgba(124,108,252,.7);border:2px solid var(--accent);
-  transform:translate(-50%,-50%);pointer-events:none;
-  transition:top .05s,left .05s;display:none;
-}
-#hesitation-ring{
-  position:absolute;width:40px;height:40px;border-radius:50%;
-  border:2px solid var(--yellow);opacity:0;transform:translate(-50%,-50%);
-  pointer-events:none;transition:opacity .3s;
-}
-
-/* ── 알림 토스트 ── */
-#toast{
-  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:8px;padding:10px 18px;font-size:13px;color:var(--text);
-  opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;
-  white-space:nowrap;
-}
+#hesitation-ring{position:absolute;width:44px;height:44px;border-radius:50%;border:2px solid var(--yellow);opacity:0;transform:translate(-50%,-50%);pointer-events:none;transition:opacity .3s;z-index:20;}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-size:13px;color:var(--text);opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;white-space:nowrap;}
 #toast.show{opacity:1;}
 </style>
 </head>
 <body>
 
-<!-- 상단 바 -->
 <div id="topbar">
-  <div class="logo">SISU · T1</div>
+  <div class="logo">SISU · T1 세션</div>
   <div class="sep">|</div>
   <div id="name-input-wrap">
     <label for="participant-name">참여자</label>
@@ -148,39 +70,30 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div id="log-count">로그 0건</div>
 </div>
 
-<!-- 프로토타입 URL 입력 바 -->
 <div id="url-bar">
-  <label for="proto-url">프로토타입 URL 또는 파일</label>
+  <label for="proto-url">프로토타입 URL</label>
   <input id="proto-url" type="text" placeholder="https://ilujh0507.github.io/sisu-t1/prototype.html">
   <button id="load-btn">불러오기</button>
 </div>
 
-<!-- 분할 화면 -->
 <div id="split-wrap">
-  <!-- 좌: 프로토타입 -->
   <div id="proto-pane">
     <div class="pane-label">
-      <span>프로토타입</span>
-      <span id="proto-url-label" style="color:var(--text-muted);font-weight:400;font-size:10px;"></span>
+      <strong>프로토타입</strong>
+      <span id="proto-url-label" style="font-size:10px;"></span>
     </div>
     <div id="proto-placeholder">
       <div class="icon">⬡</div>
-      <div>위에서 프로토타입 URL을 입력하고 불러오기를 누르세요</div>
-      <div style="font-size:12px;opacity:.6;">같은 GitHub 저장소(ilujh0507.github.io/sisu-t1/)의 파일만 로그 추적이 가능합니다</div>
+      <div>위에서 프로토타입 URL을 입력하고<br>불러오기를 누르세요</div>
+      <div style="font-size:12px;opacity:.6;">같은 GitHub 저장소 파일이어야 로그 추적이 가능합니다</div>
     </div>
     <iframe id="proto-frame" style="display:none;" allow="same-origin"></iframe>
-    <!-- 마우스 오버레이 -->
-    <div id="mouse-overlay">
-      <div id="cursor-dot"></div>
-      <div id="hesitation-ring"></div>
-    </div>
+    <div id="hesitation-ring"></div>
   </div>
-
-  <!-- 우: 설문 -->
   <div id="survey-pane">
     <div class="pane-label">
-      <span>설문</span>
-      <span style="color:var(--text-muted);font-weight:400;font-size:10px;">세션 시작 후 활성화</span>
+      <strong>설문</strong>
+      <span style="font-size:10px;">세션 시작 후 활성화</span>
     </div>
     <iframe id="survey-frame" src="about:blank"></iframe>
   </div>
@@ -192,190 +105,125 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 const FB={apiKey:"AIzaSyCoCG6FIxrt7rJ_WI8Rsrk-A2ueOQeuopU",authDomain:"sisu-t1-survey.firebaseapp.com",databaseURL:"https://sisu-t1-survey-default-rtdb.firebaseio.com",projectId:"sisu-t1-survey",storageBucket:"sisu-t1-survey.firebasestorage.app",messagingSenderId:"338910893000",appId:"1:338910893000:web:517b459a9bf3ec1f1426fd"};
 firebase.initializeApp(FB);
 const db=firebase.database();
-
-/* ── 상태 ── */
-let SESSION_ID=null;
-let sessionRef=null;
-let logCount=0;
-let sessionActive=false;
-let participantName='';
-let protoLoaded=false;
-let lastMousePos={x:0,y:0};
-let hesitationTimer=null;
-let lastTaskName='—';
-const HESITATION_MS=2000;  // 2초 이상 정지 = 머뭇거림
-const MOUSE_THROTTLE_MS=500;  // 마우스 위치 500ms마다 기록
-let lastMouseLog=0;
-
-/* ── Firebase 헬퍼 ── */
 function dbRef(p){return db.ref(p);}
 
-/* ── 토스트 ── */
-function toast(msg,ms=2000){
+let SESSION_ID=null,sessionRef=null,logCount=0,sessionActive=false;
+let participantName='',protoLoaded=false,lastTaskName='—';
+let hesitationTimer=null,lastMouseLog=0;
+const HESITATION_MS=2000,MOUSE_THROTTLE_MS=500;
+
+function toast(msg,ms=2500){
   const el=document.getElementById('toast');
   el.textContent=msg;el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),ms);
 }
 
-/* ── 로그 저장 ── */
 function saveLog(type,data){
   if(!sessionRef||!sessionActive)return;
-  const entry=Object.assign({type,ts:new Date().toISOString(),task:lastTaskName},data);
-  sessionRef.child('logs').push(entry);
-  logCount++;
-  document.getElementById('log-count').textContent='로그 '+logCount+'건';
+  sessionRef.child('logs').push(Object.assign({type,ts:new Date().toISOString(),task:lastTaskName},data));
+  document.getElementById('log-count').textContent='로그 '+(++logCount)+'건';
 }
 
 /* ── 세션 시작 ── */
 document.getElementById('participant-name').addEventListener('input',function(){
   document.getElementById('start-btn').disabled=!this.value.trim();
 });
-
 document.getElementById('start-btn').addEventListener('click',function(){
   participantName=document.getElementById('participant-name').value.trim();
   if(!participantName)return;
-
   SESSION_ID='sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
   sessionRef=dbRef('sessions/'+SESSION_ID);
-
-  sessionRef.set({
-    participantName,
-    startedAt:new Date().toISOString(),
-    status:'active',
-    protoUrl:document.getElementById('proto-url').value.trim()||'',
-  });
-
-  // 이탈 감지
+  sessionRef.set({participantName,startedAt:new Date().toISOString(),status:'active',protoUrl:document.getElementById('proto-url').value.trim()});
   sessionRef.onDisconnect().update({status:'disconnected',endedAt:new Date().toISOString()});
-
   sessionActive=true;
   document.getElementById('status-dot').classList.add('active');
   document.getElementById('status-label').textContent=participantName+' 진행 중';
   document.getElementById('start-btn').disabled=true;
   document.getElementById('participant-name').disabled=true;
-
-  // 설문 iframe 로드 (이름·세션 파라미터 전달)
-  const surveyUrl='sisu-t1-survey.html?name='+encodeURIComponent(participantName)+'&session='+SESSION_ID+'&embedded=1';
-  document.getElementById('survey-frame').src=surveyUrl;
-
-  // 프로토타입 로그 추적 시작
-  initProtoTracking();
-
+  // 설문 로드 — 이름·세션 파라미터 전달 → 설문 이름 입력 칸 숨김
+  document.getElementById('survey-frame').src='sisu-t1-survey.html?name='+encodeURIComponent(participantName)+'&session='+SESSION_ID+'&embedded=1';
+  if(protoLoaded)initProtoTracking();
   saveLog('session_start',{participantName});
   toast('세션 시작: '+participantName);
 });
 
 /* ── 프로토타입 불러오기 ── */
 document.getElementById('load-btn').addEventListener('click',loadProto);
-document.getElementById('proto-url').addEventListener('keydown',function(e){
-  if(e.key==='Enter')loadProto();
-});
-
+document.getElementById('proto-url').addEventListener('keydown',function(e){if(e.key==='Enter')loadProto();});
 function loadProto(){
   const url=document.getElementById('proto-url').value.trim();
   if(!url){toast('URL을 입력해주세요.');return;}
   const frame=document.getElementById('proto-frame');
-  const placeholder=document.getElementById('proto-placeholder');
-  frame.src=url;
-  frame.style.display='block';
-  placeholder.style.display='none';
+  frame.src=url;frame.style.display='block';
+  document.getElementById('proto-placeholder').style.display='none';
   document.getElementById('proto-url-label').textContent=url;
   protoLoaded=true;
   frame.addEventListener('load',function(){
-    toast('프로토타입 로드 완료');
+    // 프로토타입 iframe에도 동일한 커스텀 커서 CSS 주입
+    try{
+      const fdoc=frame.contentDocument||frame.contentWindow.document;
+      const s=fdoc.createElement('style');
+      s.textContent='*,*::before,*::after{cursor:url("cursor.svg") 0 0,auto !important;}';
+      fdoc.head.appendChild(s);
+    }catch(e){}
     if(sessionActive)initProtoTracking();
+    toast('프로토타입 로드 완료');
   },{once:true});
 }
 
-/* ── 프로토타입 내부 이벤트 추적 ── */
+/* ── 이벤트 추적 ── */
 function initProtoTracking(){
-  if(!protoLoaded)return;
   const frame=document.getElementById('proto-frame');
   try{
     const fdoc=frame.contentDocument||frame.contentWindow.document;
     const fwin=frame.contentWindow;
+    const ring=document.getElementById('hesitation-ring');
+    const rect=frame.getBoundingClientRect();
 
-    // 마우스 이동 (throttle)
     fdoc.addEventListener('mousemove',function(e){
       const now=Date.now();
-      const x=Math.round(e.clientX);const y=Math.round(e.clientY);
-
-      // 커서 오버레이 업데이트
-      const dot=document.getElementById('cursor-dot');
-      const rect=frame.getBoundingClientRect();
-      dot.style.display='block';
-      dot.style.left=(rect.left+x)+'px';
-      dot.style.top=(rect.top+y)+'px';
-
-      // 머뭇거림 감지 — 이동하면 타이머 리셋
-      clearTimeout(hesitationTimer);
-      document.getElementById('hesitation-ring').style.opacity='0';
+      const x=Math.round(e.clientX),y=Math.round(e.clientY);
+      // 머뭇거림 타이머 리셋
+      clearTimeout(hesitationTimer);ring.style.opacity='0';
       hesitationTimer=setTimeout(function(){
-        // 2초 이상 정지 → 머뭇거림
         saveLog('hesitation',{x,y,durationMs:HESITATION_MS});
-        const ring=document.getElementById('hesitation-ring');
-        ring.style.left=(rect.left+x)+'px';
-        ring.style.top=(rect.top+y)+'px';
+        ring.style.left=(rect.left+x)+'px';ring.style.top=(rect.top+y)+'px';
         ring.style.opacity='1';
         setTimeout(()=>ring.style.opacity='0',1500);
       },HESITATION_MS);
-
-      // throttle — 500ms마다 위치 기록
-      if(now-lastMouseLog>MOUSE_THROTTLE_MS){
-        lastMouseLog=now;
-        lastMousePos={x,y};
-        saveLog('mouse_move',{x,y});
-      }
+      // throttle 500ms
+      if(now-lastMouseLog>MOUSE_THROTTLE_MS){lastMouseLog=now;saveLog('mouse_move',{x,y});}
     });
 
-    // 클릭
     fdoc.addEventListener('click',function(e){
       const el=e.target;
-      const tag=el.tagName.toLowerCase();
-      const id=el.id||'';
-      const text=(el.textContent||'').trim().slice(0,60);
-      const cls=el.className||'';
-      saveLog('click',{tag,id,text,cls,x:Math.round(e.clientX),y:Math.round(e.clientY)});
+      saveLog('click',{tag:el.tagName.toLowerCase(),id:el.id||'',text:(el.textContent||'').trim().slice(0,60),x:Math.round(e.clientX),y:Math.round(e.clientY)});
     });
 
-    // 선택 변경 (radio, checkbox, select)
     fdoc.addEventListener('change',function(e){
       const el=e.target;
-      const tag=el.tagName.toLowerCase();
-      const id=el.id||el.name||'';
-      const value=el.type==='checkbox'?el.checked:el.value;
-      saveLog('change',{tag,id,value:String(value).slice(0,100)});
+      saveLog('change',{tag:el.tagName.toLowerCase(),id:el.id||el.name||'',value:String(el.type==='checkbox'?el.checked:el.value).slice(0,100)});
     });
 
-    // 키 입력 (내용 제외, 입력 시작/완료 시각만)
-    let inputTimer={};
+    const inputTimers={};
     fdoc.addEventListener('input',function(e){
-      const el=e.target;
-      const id=el.id||el.name||'input';
-      if(!inputTimer[id]){
-        saveLog('input_start',{id});
-      }
-      clearTimeout(inputTimer[id]);
-      inputTimer[id]=setTimeout(function(){
+      const el=e.target;const id=el.id||el.name||'input';
+      if(!inputTimers[id])saveLog('input_start',{id});
+      clearTimeout(inputTimers[id]);
+      inputTimers[id]=setTimeout(function(){
         saveLog('input_done',{id,charCount:(el.value||'').length});
-        delete inputTimer[id];
+        delete inputTimers[id];
       },1000);
     });
 
-    // URL 변경 감지 (화면 전환)
     let lastHref=fwin.location.href;
     setInterval(function(){
       try{
         const cur=fwin.location.href;
-        if(cur!==lastHref){
-          saveLog('page_change',{from:lastHref,to:cur});
-          lastHref=cur;
-        }
-        // hash 기반 Task 감지 (#task1, #t1 등)
-        const hash=fwin.location.hash||'';
-        const taskMatch=hash.match(/[tT](?:ask)?[-_]?([1-4])/);
-        if(taskMatch){
-          const t='Task '+taskMatch[1];
+        if(cur!==lastHref){saveLog('page_change',{from:lastHref,to:cur});lastHref=cur;}
+        const m=(fwin.location.hash||'').match(/[tT](?:ask)?[-_]?([1-4])/);
+        if(m){
+          const t='Task '+m[1];
           if(t!==lastTaskName){
             lastTaskName=t;
             document.getElementById('task-indicator').textContent=t;
@@ -385,33 +233,21 @@ function initProtoTracking(){
       }catch(e){}
     },500);
 
+    saveLog('tracking_start',{});
     toast('로그 추적 시작');
   }catch(e){
-    // Cross-origin 차단 시
-    toast('⚠ 로그 추적 불가 — 다른 도메인의 파일입니다',3000);
-    document.getElementById('status-label').textContent='추적 불가 (도메인 다름)';
+    toast('⚠ 로그 추적 불가 — 다른 도메인입니다',3000);
   }
 }
 
-/* ── 설문 iframe 메시지 수신 (postMessage로 Task 정보 수신 가능) ── */
 window.addEventListener('message',function(e){
   if(!e.data||typeof e.data!=='object')return;
-  if(e.data.type==='task_change'&&e.data.task){
-    lastTaskName=e.data.task;
-    document.getElementById('task-indicator').textContent=e.data.task;
-    saveLog('survey_task_change',{task:e.data.task});
-  }
-  if(e.data.type==='survey_submitted'){
-    saveLog('survey_submitted',{});
-    toast('설문 제출 완료');
-  }
+  if(e.data.type==='task_change')lastTaskName=e.data.task;
+  if(e.data.type==='survey_submitted')toast('설문 제출 완료');
 });
 
-/* ── 세션 종료 (탭 닫힐 때) ── */
 window.addEventListener('beforeunload',function(){
-  if(sessionRef&&sessionActive){
-    sessionRef.update({status:'ended',endedAt:new Date().toISOString()});
-  }
+  if(sessionRef&&sessionActive)sessionRef.update({status:'ended',endedAt:new Date().toISOString()});
 });
 </script>
 </body>
