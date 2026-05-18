@@ -3632,66 +3632,31 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
 
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-  (function(){
-    function sendTaskChange(taskId, taskLabel, condition){
-      window.parent.postMessage({
-        type: 'CLUX_TASK_CHANGE',
-        task: taskId,
-        currentTask: taskId,
-        taskId: taskId,
-        taskLabel: taskLabel || String(taskId),
-        condition: condition || ''
-      }, '*');
-    }
-    function patchGoToTab(){
-      // window.Task1~Task4, IntroScreen 등 전역 컴포넌트가 등록된 후 실행
-      const origSetState = React && React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-      // React 렌더링 감지 — MutationObserver로 DOM 변화 감지해서 현재 task 추적
-      let lastTask = null;
-      const observer = new MutationObserver(function(){
-        // data-task, data-screen, data-page, id 등으로 현재 화면 파악
-        const taskEl = document.querySelector('[data-task],[data-screen],[data-page]');
-        const bodyId = document.body && document.body.getAttribute('data-current');
-        const candidate = (taskEl && (taskEl.dataset.task || taskEl.dataset.screen || taskEl.dataset.page)) || bodyId;
-        if(candidate && candidate !== lastTask){
-          lastTask = candidate;
-          sendTaskChange(candidate, candidate, '');
-        }
-        // 화면에 Task1~Task4 텍스트 포함 여부로도 감지
-        const headings = document.querySelectorAll('h1,h2,[class*="title"],[class*="header"]');
-        headings.forEach(function(el){
-          const m = (el.textContent||'').match(/Task\s*([1-4])/i);
-          if(m){
-            const t = 'Task'+m[1];
-            if(t !== lastTask){ lastTask = t; sendTaskChange(t, 'Task '+m[1], ''); }
-          }
-        });
-      });
-      observer.observe(document.body, {childList:true, subtree:true, attributes:true});
-    }
-    // 번들러가 DOM 교체 후 실행되도록 충분한 지연
-    setTimeout(patchGoToTab, 1500);
-    // goToTab, setActiveTask 전역 함수 오버라이드 (번들러 실행 후 등록된 경우 대비)
+(function(){
+  var _lastTask = null;
+  function _sendTask(id, label){
+    if(id === _lastTask) return;
+    _lastTask = id;
+    window.parent.postMessage({
+      type: 'CLUX_TASK_CHANGE',
+      task: id, taskId: id, taskLabel: label || id, currentTask: id
+    }, '*');
+  }
+  document.addEventListener('click', function(e){
     setTimeout(function(){
-      ['goToTab','setActiveTask','setActive','navigateTo'].forEach(function(fnName){
-        if(typeof window[fnName] === 'function'){
-          const orig = window[fnName];
-          window[fnName] = function(){
-            const result = orig.apply(this, arguments);
-            const arg = arguments[0];
-            if(arg && typeof arg === 'object'){
-              sendTaskChange(arg.id || arg.taskId || '', arg.label || '', arg.condition || '');
-            } else if(arg !== undefined){
-              sendTaskChange(arg, 'Task '+arg, '');
-            }
-            return result;
-          };
-        }
-      });
-    }, 2000);
-  })();
-});
+      // 클릭 후 200ms 뒤 DOM에서 현재 Task 텍스트 찾기
+      var all = document.body.innerText || '';
+      var m = all.match(/Task\s*([1-4])/i);
+      if(m) _sendTask('Task'+m[1], 'Task '+m[1]);
+      // data 속성으로도 찾기
+      var el = document.querySelector('[data-task],[data-screen],[data-step],[data-page]');
+      if(el){
+        var v = el.dataset.task||el.dataset.screen||el.dataset.step||el.dataset.page;
+        if(v) _sendTask(v, v);
+      }
+    }, 200);
+  }, true);
+})();
 </script>
 </body>
 </html>
