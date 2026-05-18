@@ -135,8 +135,11 @@ function startSession(name){
   participantName=name;
   SESSION_ID='sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
   sessionRef=dbRef('sessions/'+SESSION_ID);
-  sessionRef.set({participantName,startedAt:new Date().toISOString(),status:'active',protoUrl:PROTO_URL});
+  sessionRef.set({participantName,startedAt:new Date().toISOString(),status:'active',protoUrl:PROTO_URL,phase:'proto'});
   sessionRef.onDisconnect().update({status:'disconnected',endedAt:new Date().toISOString()});
+  // admin 라이브 모니터용 — live/ 경로에도 기록
+  dbRef('live/'+SESSION_ID).set({participantName,startedAt:new Date().toISOString(),status:'active',phase:'proto'});
+  dbRef('live/'+SESSION_ID).onDisconnect().update({status:'disconnected',endedAt:new Date().toISOString()});
   sessionActive=true;
   document.getElementById('status-dot').classList.add('active');
   document.getElementById('status-label').textContent=participantName+' 진행 중';
@@ -244,6 +247,7 @@ function switchToSurvey(){
   if(!sessionActive)return;
   saveLog('proto_completed',{ts:new Date().toISOString()});
   sessionRef.update({protoCompletedAt:new Date().toISOString(),phase:'survey'});
+  dbRef('live/'+SESSION_ID).update({phase:'survey',protoCompletedAt:new Date().toISOString()});
   const protoPane=document.getElementById('proto-pane');
   const surveyPane=document.getElementById('survey-pane');
   const surveyFrame=document.getElementById('survey-frame');
@@ -267,6 +271,7 @@ window.addEventListener('message',function(e){
   if(e.data.type==='survey_submitted'){
     saveLog('survey_completed',{ts:new Date().toISOString()});
     sessionRef.update({surveyCompletedAt:new Date().toISOString(),phase:'done'});
+    if(SESSION_ID)dbRef('live/'+SESSION_ID).update({phase:'done',status:'submitted',surveyCompletedAt:new Date().toISOString()});
     toast('설문 제출 완료');
   }
   if(e.data.type==='CLUX_GO_SURVEY'||e.data.type==='go_survey'||e.data.type==='proto_complete'){
