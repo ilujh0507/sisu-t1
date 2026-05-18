@@ -157,16 +157,30 @@ function onDisconnect(r){return r.onDisconnect();}
 const SESSION_ID='live_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
 const liveRef=dbRef('live/'+SESSION_ID);
 
+// URL 파라미터로 이름·세션 수신 (통합 html에서 호출 시)
+const _urlParams=new URLSearchParams(window.location.search);
+const _urlName=_urlParams.get('name')||'';
+const _urlSession=_urlParams.get('session')||'';
+const _embedded=_urlParams.get('embedded')==='1';
+
 // 세션 시작 & 이탈 감지
-set(liveRef,{startedAt:new Date().toISOString(),status:'active',respondentName:'',answers:{}});
+set(liveRef,{startedAt:new Date().toISOString(),status:'active',respondentName:_urlName,answers:{},embeddedSession:_urlSession||''});
 onDisconnect(liveRef).remove();
 
 const sessLabel=document.getElementById('session-label');
 const respondentNameEl=document.getElementById('respondent-name');
+const respondentCard=document.getElementById('respondent-card');
 const loadingEl=document.getElementById('loading');
 const formEl=document.getElementById('survey-form');
 const completeEl=document.getElementById('complete-screen');
 const errorEl=document.getElementById('error-msg');
+
+// 통합 html에서 호출된 경우 이름 입력 칸 숨김
+if(_embedded && _urlName){
+  if(respondentCard) respondentCard.style.display='none';
+}
+// URL로 이름 받은 경우 입력 필드에 자동 세팅
+if(_urlName && respondentNameEl) respondentNameEl.value=_urlName;
 
 let nameUpdateTimer=null;
 respondentNameEl?.addEventListener('input',function(){
