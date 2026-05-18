@@ -754,8 +754,6 @@ onValue(dbRef('trash'),snap=>{
   trashResp=Object.entries(d).map(([k,v])=>({_key:k,...v}));
   document.getElementById('stat-trash').textContent=trashResp.length||'—';
   renderTrash();
-  const now=Date.now();
-  trashResp.forEach(r=>{if(r.submittedAt&&now-new Date(r.submittedAt).getTime()>3600000)remove(dbRef('trash/'+r._key));});
 });
 onValue(dbRef('live'),snap=>{
   liveSessions=snap.val()||{};
@@ -1519,7 +1517,18 @@ window.fromTrash=function(k){
   const d=Object.assign({},r);delete d._key;
   set(dbRef('responses/'+k),d).then(function(){remove(dbRef('trash/'+k));});
 };
-window.permDel=function(k){if(confirm('영구 삭제하면 복원이 불가합니다. 계속할까요?'))remove(dbRef('trash/'+k));};
+window.permDel=function(k){
+  if(confirm('영구 삭제하면 복원이 불가합니다. 계속할까요?')){
+    const r=trashResp.find(x=>x._key===k);
+    if(r){
+      const d=Object.assign({},r);delete d._key;
+      d._deletedAt=new Date().toISOString();
+      set(dbRef('backup/'+k),d).then(function(){remove(dbRef('trash/'+k));});
+    } else {
+      remove(dbRef('trash/'+k));
+    }
+  }
+};
 
 /* ─── CSV EXPORT ─── */
 window.exportCsv=function(){
