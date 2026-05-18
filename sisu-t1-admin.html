@@ -823,11 +823,16 @@ function renderDvSummary(){
 /* ─── LIVE ─── */
 function renderLive(){
   const c=document.getElementById('live-container');
-  const sessions=Object.entries(liveSessions);
-  if(!sessions.length){c.innerHTML='<div class="empty-state">현재 응답 중인 세션이 없습니다.</div>';return;}
+  const sessions=Object.entries(liveSessions)
+    .filter(([,s])=>s.participantName||s.respondentName||s.name);
+  if(!sessions.length){c.innerHTML='<div class="empty-state">현재 진행 중인 세션이 없습니다.</div>';return;}
   sessions.sort(([,a],[,b])=>{if(a.status===b.status)return new Date(b.startedAt)-new Date(a.startedAt);return a.status==='active'?-1:1;});
   c.innerHTML=sessions.map(([id,s])=>{
-    const isA=s.status==='active';
+    const phase=s.phase||'proto';
+    const isDone=s.status==='submitted'||phase==='done';
+    const isSurvey=phase==='survey';
+    let badgeClass=isDone?'live-done':'live-active';
+    let badgeText=isDone?'✓ 완료':isSurvey?'📝 설문 중':'🔬 탐험 중';
     const t=s.startedAt?new Date(s.startedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
     const liveName=escapeHtml((s.respondentName||s.participantName||s.name||'').trim()||'이름 입력 전');
     const rows=Object.entries(s.answers||{}).map(([k,v])=>{
@@ -837,9 +842,10 @@ function renderLive(){
       else if(v.type==='text')val='<span class="live-val lv-text">'+(v.answer||'(입력 중...)')+'</span>';
       else return'';
       const ts=v.changedAt?new Date(v.changedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
-      return'<div class="live-row"><span class="live-key">'+k+'</span><span class="live-qtxt">'+(v.question||'')+'</span>'+val+'<span class="live-chts">'+ts+'</span></div>';
+      const label=getQuestionLabelByKey(k,v);
+      return'<div class="live-row" style="align-items:flex-start;"><span class="live-key" style="min-width:200px;max-width:340px;white-space:normal;line-height:1.5;word-break:keep-all;">'+escapeHtml(label)+'</span>'+val+'<span class="live-chts">'+ts+'</span></div>';
     }).filter(Boolean).join('');
-    return'<div class="live-card"><div class="live-header"><span class="live-id">'+liveName+'</span><span class="live-badge '+(isA?'live-active':'live-done')+'">'+(isA?'⚡ 응답 중':'✓ 제출 완료')+'</span><span class="live-ts-main">시작 '+t+'</span></div>'+(rows||'<div style="font-size:13px;color:var(--text-muted);">아직 선택 없음</div>')+'</div>';
+    return'<div class="live-card"><div class="live-header"><span class="live-id">'+liveName+'</span><span class="live-badge '+badgeClass+'">'+badgeText+'</span><span class="live-ts-main">시작 '+t+'</span></div>'+(rows||'<div style="font-size:13px;color:var(--text-muted);">아직 응답 없음</div>')+'</div>';
   }).join('');
 }
 
