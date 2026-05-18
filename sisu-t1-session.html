@@ -57,14 +57,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 <div id="topbar">
   <div class="logo">SISU · T1 세션</div>
   <div class="sep">|</div>
-  <div id="name-input-wrap">
-    <label for="participant-name">참여자</label>
-    <input id="participant-name" type="text" placeholder="이름 입력" maxlength="40" autocomplete="off">
-  </div>
-  <button id="start-btn" disabled>세션 시작</button>
-  <div class="sep">|</div>
   <div class="status-dot" id="status-dot"></div>
-  <div id="status-label">대기 중</div>
+  <div id="status-label">참여자 대기 중</div>
   <div class="spacer"></div>
   <div id="task-indicator">Task —</div>
   <div id="log-count">로그 0건</div>
@@ -135,13 +129,10 @@ function saveLog(type,data){
   document.getElementById('log-count').textContent='로그 '+(++logCount)+'건';
 }
 
-/* ── 세션 시작 ── */
-document.getElementById('participant-name').addEventListener('input',function(){
-  document.getElementById('start-btn').disabled=!this.value.trim();
-});
-document.getElementById('start-btn').addEventListener('click',function(){
-  participantName=document.getElementById('participant-name').value.trim();
-  if(!participantName)return;
+/* ── 세션 시작 — CLUX에서 이름 받아서 자동 시작 ── */
+function startSession(name){
+  if(sessionActive)return;
+  participantName=name;
   SESSION_ID='sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
   sessionRef=dbRef('sessions/'+SESSION_ID);
   sessionRef.set({participantName,startedAt:new Date().toISOString(),status:'active',protoUrl:PROTO_URL});
@@ -149,14 +140,10 @@ document.getElementById('start-btn').addEventListener('click',function(){
   sessionActive=true;
   document.getElementById('status-dot').classList.add('active');
   document.getElementById('status-label').textContent=participantName+' 진행 중';
-  document.getElementById('start-btn').disabled=true;
-  document.getElementById('participant-name').disabled=true;
-  // 설문 로드 — 이름·세션 파라미터 전달 → 설문 이름 입력 칸 숨김
-  document.getElementById('survey-frame').src='sisu-t1-survey.html?name='+encodeURIComponent(participantName)+'&session='+SESSION_ID+'&embedded=1';
-  if(protoLoaded)initProtoTracking();
   saveLog('session_start',{participantName});
   toast('세션 시작: '+participantName);
-});
+  if(protoLoaded)initProtoTracking();
+}
 
 /* ── 프로토타입 불러오기 ── */
 document.getElementById('load-btn').addEventListener('click',loadProto);
@@ -272,13 +259,16 @@ function switchToSurvey(){
 
 window.addEventListener('message',function(e){
   if(!e.data||typeof e.data!=='object')return;
+  // CLUX에서 참여자 이름 수신 → 세션 자동 시작
+  if(e.data.type==='CLUX_PARTICIPANT_NAME'&&e.data.name){
+    startSession(e.data.name);
+  }
   if(e.data.type==='task_change')lastTaskName=e.data.task;
   if(e.data.type==='survey_submitted'){
     saveLog('survey_completed',{ts:new Date().toISOString()});
     sessionRef.update({surveyCompletedAt:new Date().toISOString(),phase:'done'});
     toast('설문 제출 완료');
   }
-  // CLUX에서 설문 참여 버튼 클릭 시
   if(e.data.type==='CLUX_GO_SURVEY'||e.data.type==='go_survey'||e.data.type==='proto_complete'){
     switchToSurvey();
   }

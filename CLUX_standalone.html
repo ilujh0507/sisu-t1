@@ -127,7 +127,6 @@
   .scroll-hide::-webkit-scrollbar { display: none; }
 </style>
 <script type="text/babel">
-
 // ========== src/icons.jsx ==========
 // Minimal line icon set (Lucide-style stroke), original.
 const I = ({ d, s = 16, sw = 1.6, c = 'currentColor', fill = 'none', children }) => (
@@ -192,7 +191,11 @@ function IntroScreen({ onStart }) {
 
   const startProject = () => {
     if (!canStart) return;
-    onStart({ 
+    window.parent.postMessage({
+      type: 'CLUX_PARTICIPANT_NAME',
+      name: participantName.trim()
+    }, '*');
+    onStart({
       name: name.trim(), 
       goal: goal.trim(), 
       target: target.trim(),
@@ -566,6 +569,7 @@ function Task1({ condition, state, setState, goToTab }) {
   const [hovered, setHovered] = React.useState(true);
   const [frictionCountdown, setFrictionCountdown] = React.useState(5);
   const [aiOpened, setAiOpened] = React.useState(false);
+  const [showAgentPopup, setShowAgentPopup] = React.useState(false);
   const [aiLoading, setAiLoading] = React.useState(false);
   const [aiResult, setAiResult] = React.useState(null);
   const [aiError, setAiError] = React.useState(null);
@@ -600,14 +604,14 @@ function Task1({ condition, state, setState, goToTab }) {
     setFrictionCountdown(5);
     const t = setInterval(() => {
       setFrictionCountdown(s => {
-        if (s <= 1) { clearInterval(t); setAiOpened(true); return 0; }
+        if (s <= 1) { clearInterval(t); setAiOpened(true); setShowAgentPopup(true); return 0; }
         return s - 1;
       });
     }, 1000);
     return () => clearInterval(t);
   }, [condition, aiOpened]);
 
-  React.useEffect(() => { setAiOpened(false); setShowPopup(false); setSelected(new Set()); }, [condition]);
+  React.useEffect(() => { setAiOpened(false); setShowPopup(false); setShowAgentPopup(false); setSelected(new Set()); }, [condition]);
 
   const toggle = (id) => {
     setSelected(s => {
@@ -869,13 +873,23 @@ function Task1({ condition, state, setState, goToTab }) {
                 커서가 5초 이상 머뭇거리거나 스크롤이 멈추면, 에이전트가 먼저 패턴을 제안합니다.
               </p>
               {!aiOpened ? (
-                <div className="mt-3 p-3 rounded-lg t1-bg border t1-bd">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] mono t1-c">FRICTION DETECTED · idle</span>
-                    <span className="text-[11px] mono t1-c">{frictionCountdown}s</span>
+                <div className="mt-3 p-4 rounded-lg t1-bg border t1-bd relative overflow-hidden">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center pulse shrink-0" style={{ background: 'var(--t1)' }}>
+                      <span className="text-[20px] font-bold text-white">{frictionCountdown}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10.5px] mono t1-c font-semibold tracking-wider uppercase mb-0.5">AI 자동 분석 카운트다운</div>
+                      <div className="text-[12px] font-semibold ink-1 leading-snug">
+                        <strong className="t1-c">{frictionCountdown}초</strong> 후 AI가 추천을 시작해요
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-1 mt-2 rounded-full overflow-hidden" style={{ background: 'var(--surface)' }}>
+                  <div className="h-1.5 mt-3 rounded-full overflow-hidden" style={{ background: 'var(--bg-3)' }}>
                     <div className="h-full t1-fill transition-all" style={{ width: `${(5 - frictionCountdown) / 5 * 100}%` }} />
+                  </div>
+                  <div className="text-[10.5px] ink-2 mt-2 leading-snug">
+                    직접 골라도 좋고, 잠시 기다리면 AI가 먼저 패턴을 찾아드려요.
                   </div>
                 </div>
               ) : (
@@ -907,6 +921,41 @@ function Task1({ condition, state, setState, goToTab }) {
           </div>
         </div>
       </div>
+
+      {/* Agent proactive popup — appears when 5s countdown completes in Condition B */}
+      {showAgentPopup && condition === 'B' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'oklch(0.08 0.01 260 / 0.85)' }} onClick={() => setShowAgentPopup(false)}>
+          <div className="w-[520px] rounded-2xl overflow-hidden lift" style={{ background: 'var(--bg-2)', border: '1px solid var(--t1)' }} onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5" style={{ background: 'var(--t1-bg)', borderBottom: '1px solid var(--t1-line)' }}>
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 pulse" style={{ background: 'var(--t1)' }}>
+                  <Icon.Robot s={22} c="white"/>
+                </div>
+                <div className="flex-1">
+                  <div className="text-[10.5px] mono t1-c uppercase tracking-wider mb-1">AI 에이전트 알림</div>
+                  <h3 className="text-[18px] font-semibold ink-1 leading-snug">제가 인사이트를 정리해드릴까요?</h3>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5">
+              <div className="text-[13px] ink-1 leading-relaxed">
+                인터뷰 100건을 살펴본 결과, <strong className="t1-c">'도장 유실'·'단골 식별'·'개인정보 부담'</strong> 세 가지 패턴이 반복돼요.
+              </div>
+              <div className="text-[12.5px] ink-2 mt-2 leading-relaxed">
+                참여자님이 직접 골라도 좋고, AI가 먼저 정리한 결과를 보고 시작해도 좋아요.
+              </div>
+            </div>
+            <div className="px-6 py-4 flex items-center gap-2" style={{ background: 'var(--bg-3)', borderTop: '1px solid var(--line)' }}>
+              <button onClick={() => setShowAgentPopup(false)} className="flex-1 text-[12.5px] px-3 py-2.5 rounded-lg surface border line ink-2 font-medium">
+                직접 살펴볼래요
+              </button>
+              <button onClick={() => { setShowAgentPopup(false); runExtraction(); }} className="flex-1 text-[12.5px] font-semibold px-3 py-2.5 rounded-lg text-white flex items-center justify-center gap-1.5" style={{ background: 'var(--t1)' }}>
+                <Icon.Sparkle s={13} c="white"/> AI 추천 보기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI extraction popup — real-time Claude response based on selection */}
       {showPopup && (
@@ -1036,14 +1085,73 @@ function Task1({ condition, state, setState, goToTab }) {
 
 // ========== src/task2.jsx ==========
 // Task 2 — Problem Definition (declarative). micro-var: explanation mode (A concise / B devil's advocate)
-const PROBLEM_SEEDS = [
-'바쁜 와중에도 사장님이 단골을 알아볼 수 있는 방법이 필요해요.',
-'손님이 개인정보를 알려주지 않아도 적립받을 수 있어야 해요.',
-'도장 찍는 일 자체를 사장님 손에서 덜어드려야 해요.'];
 
+// Problem seed library, keyed by T1 cluster types. Each cluster maps to 1-2 hypothesis-form seeds.
+const SEEDS_BY_CLUSTER = {
+  'stamp-loss': [
+    '사장님은 바쁜 카운터 상황으로 인해 도장 적립을 손에서 덜어내는 자동화가 필요하다.',
+    '사장님은 종이 쿠폰 분실·누락으로 인해 디지털 흔적으로 적립을 잇는 방식이 필요하다.',
+  ],
+  'identify': [
+    '사장님은 손님 얼굴은 알아도 이름·취향을 기억하기 어려우므로 단골을 자동으로 알아보는 도구가 필요하다.',
+    '사장님은 바쁜 시간에 단골을 일일이 신경 쓸 여력이 없으므로 카운터 동선 안에서 자연스럽게 단골 정보가 따라오는 방식이 필요하다.',
+  ],
+  'privacy': [
+    '손님은 개인정보 노출에 거부감이 있으므로 전화번호 없이도 적립받을 수 있는 익명 방식이 필요하다.',
+    '손님은 앱 설치·정보 입력에 부담을 느끼므로 결제 흐름 안에서 자연스럽게 적립이 이어지는 방식이 필요하다.',
+  ],
+};
+
+// Generic fallback seeds when T1 result is missing
+const FALLBACK_SEEDS = [
+  '사장님은 바쁜 와중에도 단골을 알아볼 수 있는 방법이 필요하다.',
+  '손님은 개인정보를 알려주지 않아도 적립받을 수 있는 방식이 필요하다.',
+  '사장님은 도장 찍는 일 자체를 손에서 덜어내는 자동화가 필요하다.',
+];
+
+// Map T1 cluster labels to cluster keys (T1 AI may return Korean labels; we infer cluster type from codeIds)
+function inferClusterKey(cluster) {
+  const codeIds = cluster.codeIds || [];
+  const stampCodes = ['C-014','C-027','C-052','C-079'];
+  const identifyCodes = ['C-021','C-038','C-058','C-071','C-088'];
+  const privacyCodes = ['C-031','C-044','C-063'];
+  let stampHits = 0, idHits = 0, privHits = 0;
+  codeIds.forEach(id => {
+    if (stampCodes.includes(id)) stampHits++;
+    if (identifyCodes.includes(id)) idHits++;
+    if (privacyCodes.includes(id)) privHits++;
+  });
+  if (stampHits >= idHits && stampHits >= privHits && stampHits > 0) return 'stamp-loss';
+  if (idHits >= privHits && idHits > 0) return 'identify';
+  if (privHits > 0) return 'privacy';
+  // fallback to label-based inference
+  const label = (cluster.label || '') + ' ' + (cluster.summary || '');
+  if (/도장|쿠폰|적립|누락|찍/.test(label)) return 'stamp-loss';
+  if (/단골|식별|기억|알아/.test(label)) return 'identify';
+  if (/개인정보|전화|익명|동의/.test(label)) return 'privacy';
+  return null;
+}
+
+// Build problem seeds based on T1's saved clusters
+function buildProblemSeeds(t1Result) {
+  const clusters = (t1Result && t1Result.clusters) || [];
+  if (clusters.length === 0) return FALLBACK_SEEDS;
+  const seeds = [];
+  const usedKeys = new Set();
+  clusters.forEach(c => {
+    const key = inferClusterKey(c);
+    if (key && !usedKeys.has(key) && SEEDS_BY_CLUSTER[key]) {
+      usedKeys.add(key);
+      // Pick the first seed for this cluster
+      seeds.push(SEEDS_BY_CLUSTER[key][0]);
+    }
+  });
+  return seeds.length > 0 ? seeds : FALLBACK_SEEDS;
+}
 
 function Task2({ condition, state, setState, goToTab }) {
   const [problem, setProblem] = React.useState(state.t2.problem || state.t2.hmw || '');
+  const problemSeeds = React.useMemo(() => buildProblemSeeds(state.t1?.savedResult), [state.t1?.savedResult]);
   const [chosen, setChosen] = React.useState(-1);
   const [aiLoading, setAiLoading] = React.useState(false);
   const [aiText, setAiText] = React.useState('');
@@ -1067,6 +1175,10 @@ function Task2({ condition, state, setState, goToTab }) {
     setRecProblem('');
     setEvidence([]);
     try {
+      const t1Clusters = (state.t1?.savedResult?.clusters || []);
+      const t1Context = t1Clusters.length > 0
+        ? t1Clusters.map(c => `- ${c.label}: ${c.summary || ''} (${(c.codeIds || []).join(', ')})`).join('\n')
+        : '- 도장 유실 / 적립 누락 (38건)\n- 단골 식별 난항 (41건)\n- 개인정보 노출 거부감 (21건)';
       const modePrompt = condition === 'A' ?
       `결론 중심형 · 가장 유망한 정의 1개를 짧게 권장하는 톤으로 응답하세요. 사용자의 현재 문제 정의가 강점이 있다면 그것을 더 날카롭게 다듬는 대안 문제 정의를 제시하세요. evidence 필드는 빈 배열로 두세요.` :
       `Devil's Advocate · 사용자의 현재 문제 정의의 사각지대·맹점을 날카롭게 짚는 비판적 톤으로 응답하세요. 어떤 인사이트가 누락되었는지 지적하고, 그 맹점을 보완한 대안 문제 정의를 제시하세요. 반드시 evidence 필드에 인터뷰 코드 2~3건을 근거로 인용하세요(C-014, C-027, C-052, C-079: 도장 유실 / C-021, C-038, C-058, C-071, C-088: 단골 식별 / C-031, C-044, C-063: 개인정보 거부감).`;
@@ -1077,10 +1189,8 @@ function Task2({ condition, state, setState, goToTab }) {
 [사용자의 현재 문제 정의]
 ${problem}
 
-[T1 인사이트 군집]
-- 도장 유실 / 적립 누락 (38건)
-- 단골 식별 난항 (41건)
-- 개인정보 노출 거부감 (21건)
+[T1 인사이트 군집 (참여자가 선택한 인사이트)]
+${t1Context}
 
 [응답 모드]
 ${modePrompt}
@@ -1181,7 +1291,7 @@ ${modePrompt}
               <textarea
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
-                placeholder="문제 정의를 입력해주세요. 예) 바쁜 와중에도 사장님이 단골을 알아볼 수 있는 방법이 필요해요."
+                placeholder="예) 바쁜 와중에도 사장님이 단골을 알아볼 수 있는 방법이 필요해요."
                 rows={3}
                 className="w-full text-[18px] font-medium ink-1 mt-2 bg-transparent outline-none resize-none leading-snug"
                 style={{ caretColor: 'var(--t2)' }} />
@@ -1189,7 +1299,7 @@ ${modePrompt}
               <div className="flex items-center justify-between mt-4 pt-3 border-t line gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10.5px] mono ink-3 mr-1">막막하면 →</span>
-                  {PROBLEM_SEEDS.map((s, i) =>
+                  {problemSeeds.map((s, i) =>
                   <button key={i} onClick={() => {setProblem(s);setChosen(i);}}
                   className={`text-[11.5px] px-2.5 py-1 rounded-md border ${chosen === i ? 't2-bg t2-bd t2-c' : 'line ink-2 surface'}`}>
                       예시 {i + 1}
@@ -1207,8 +1317,14 @@ ${modePrompt}
       <div className="w-[340px] shrink-0 border-l line surface-2 overflow-y-auto">
         <div className="px-5 py-4 border-b line">
           <div className="text-[10.5px] mono uppercase tracking-wider ink-3">AI 도움 방식</div>
-          <div className="text-[14px] font-semibold mt-1 ink-1">어떻게 말해줄까요?</div>
-          <div className="text-[11.5px] ink-2 mt-1 leading-snug">AI가 어떤 말투로 도와줄지 정해요.</div>
+          <div className="text-[14px] font-semibold mt-1 ink-1">
+            {condition === 'A' ? '핵심을 짚어드려요' : '꼼꼼히 검증해드려요'}
+          </div>
+          <div className="text-[11.5px] ink-2 mt-1 leading-snug">
+            {condition === 'A'
+              ? '가장 유망한 가설을 빠르게 추천해드릴게요.'
+              : '놓친 부분이나 사각지대를 인터뷰 근거로 짚어드릴게요.'}
+          </div>
         </div>
 
         <div className="px-5 py-4 space-y-3">
@@ -1326,6 +1442,7 @@ ${modePrompt}
 }
 
 window.Task2 = Task2;
+
 
 // ========== src/task3.jsx ==========
 // Task 3 — Ideation. micro-var: AI alternative organization (A expansive / B convergent)
@@ -2492,7 +2609,7 @@ function Task4({ condition, state, setState }) {
               
               // Survey button handler
               document.getElementById('surveyBtn').onclick = () => {
-                window.open('https://ilujh0507.github.io/sisu-t1/sisu-t1-survey.html', '_blank');
+                window.parent.postMessage({type:'CLUX_GO_SURVEY'}, '*');
               };
             }}
             className="w-full py-2.5 rounded-lg t4-fill text-white text-[13px] font-semibold flex items-center justify-center gap-2">
@@ -3266,15 +3383,15 @@ function TopBar({ active, setActive, conditions, setConditions }) {
 
 function App() {
   const [active, setActive] = useState(TAB_DEFS[0]);
-  const [conditions, setConditions] = useState({ T1: 'B', T2: 'B', T3: 'B', T4: 'B' });
+  const [conditions, setConditions] = useState({ T1: 'A', T2: 'A', T3: 'A', T4: 'A' });
   const [showSummary, setShowSummary] = useState(false);
   const [state, setState] = useState({
     projectStarted: false,
     project: { name: '', goal: '', target: '' },
     progress: 0.06,
-    conditions: { T1: 'B', T2: 'B', T3: 'B', T4: 'B' },
+    conditions: { T1: 'A', T2: 'A', T3: 'A', T4: 'A' },
     t1: { insightsLocked: false },
-    t2: { hmw: '', hmwLocked: false },
+    t2: { hmw: '어떻게 하면 사장님이 바쁜 와중에도 단골을 바로 알아볼 수 있을까?', hmwLocked: false },
     t3: { conceptCount: 0 }
   });
 
