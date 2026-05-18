@@ -559,7 +559,9 @@ function PatternCard({ pattern, color, onUpdate, onDelete }) {
   );
 }
 
-function Task1({ condition, state, setState, goToTab }) {
+function Task1({ condition, state, setState, goToTab, content }) {
+  const _rawCodes = (content && content.task1 && content.task1.rawCodes) || RAW_CODES;
+  const _clusters = (content && content.task1 && content.task1.clusters) || CLUSTERS;
   const [selected, setSelected] = React.useState(new Set());
   const [showPopup, setShowPopup] = React.useState(false);
   const [hovered, setHovered] = React.useState(true);
@@ -624,8 +626,8 @@ function Task1({ condition, state, setState, goToTab }) {
     try {
       // AI auto-extraction on selected codes (or all if none selected, e.g., proactive trigger)
       const codesToAnalyze = selected.size > 0
-        ? RAW_CODES.filter(c => selected.has(c.id))
-        : RAW_CODES;
+        ? _rawCodes.filter(c => selected.has(c.id))
+        : _rawCodes;
       const codeList = codesToAnalyze.map(c => `${c.id} [${c.tag}] ${c.q}`).join('\n');
       const sourceLabel = selected.size > 0
         ? `사용자가 선택한 코드 ${codesToAnalyze.length}건`
@@ -651,10 +653,10 @@ function Task1({ condition, state, setState, goToTab }) {
   };
 
   // group codes by cluster for visualization
-  const grouped = Object.keys(CLUSTERS).map(k => ({
+  const grouped = Object.keys(_clusters).map(k => ({
     key: k,
-    info: CLUSTERS[k],
-    codes: RAW_CODES.filter(c => c.cluster === k),
+    info: _clusters[k],
+    codes: _rawCodes.filter(c => c.cluster === k),
   }));
 
   // Upload screen — shown before user starts T1 work
@@ -816,7 +818,7 @@ function Task1({ condition, state, setState, goToTab }) {
           </div>
 
           <div className="mt-3 space-y-1.5">
-            {RAW_CODES.map(c => (
+            {_rawCodes.map(c => (
               <CodeRow key={c.id} code={c} sel={selected.has(c.id)} onClick={() => toggle(c.id)} />
             ))}
           </div>
@@ -844,14 +846,27 @@ function Task1({ condition, state, setState, goToTab }) {
                 <Icon.Hand s={14} c="var(--t1)"/>
                 <span className="text-[12.5px] font-medium ink-1">사용자 주도형 · 명시적 호출</span>
               </div>
-                  <p className="text-[11.5px] ink-2 mt-2 leading-relaxed">
+              <p className="text-[11.5px] ink-2 mt-2 leading-relaxed">
                 코드 2개 이상을 선택한 뒤 <span className="kbd">인사이트 추출</span>을 직접 눌렀을 때만 에이전트가 분석을 실행합니다.
               </p>
-              <div className="mt-3 p-3 rounded-lg dashed text-center text-[11px] mono ink-3">
-                AI 대기 중 ·<br/>사용자 입력 기다리는 중
-              </div>
+              {selected.size >= 2 ? (
+                <div className="mt-3 p-3 rounded-lg t1-bg border t1-bd">
+                  <div className="flex items-center gap-1.5">
+                    <span className="dot t1-fill pulse"/>
+                    <span className="text-[11px] mono t1-c">선택 완료 · 분석 준비됨</span>
+                  </div>
+                  <div className="text-[12px] ink-1 mt-2 leading-snug">
+                    {selected.size}개 코드를 선택했어요. "인사이트 추출" 버튼을 눌러 분석을 시작하세요.
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 p-3 rounded-lg dashed text-center text-[11px] mono ink-3">
+                  AI 대기 중 ·<br/>사용자 입력 기다리는 중
+                </div>
+              )}
               <div className="mt-3 text-[11px] ink-3 flex items-center gap-1.5">
-                <span className="dot" style={{ background: 'var(--ink-3)' }} /> idle · 0 intervention
+                <span className="dot" style={{ background: selected.size >= 2 ? 'var(--t1)' : 'var(--ink-3)' }} />
+                {selected.size >= 2 ? `ready · ${selected.size} codes selected` : 'idle · 0 intervention'}
               </div>
             </div>
           ) : (
@@ -1045,7 +1060,7 @@ const PROBLEM_SEEDS = [
 '도장 찍는 일 자체를 사장님 손에서 덜어드려야 해요.'];
 
 
-function Task2({ condition, state, setState, goToTab }) {
+function Task2({ condition, state, setState, goToTab, content }) {
   const [problem, setProblem] = React.useState(state.t2.problem || state.t2.hmw || '');
   const [chosen, setChosen] = React.useState(-1);
   const [aiLoading, setAiLoading] = React.useState(false);
@@ -1054,6 +1069,7 @@ function Task2({ condition, state, setState, goToTab }) {
   const [evidence, setEvidence] = React.useState([]); // [{codeId, quote, reason}]
   const [showHandoff, setShowHandoff] = React.useState(false);
 
+  const _problemSeeds = (content && content.task2 && content.task2.problemSeeds) || PROBLEM_SEEDS;
   const lock = () => {
     if (!problem.trim()) return;
     setState((s) => ({ ...s, t2: { ...s.t2, problem, problemLocked: true, hmw: problem, hmwLocked: true, savedFeedback: aiText, savedAltProblem: recProblem }, progress: Math.max(s.progress, 0.52) }));
@@ -1192,7 +1208,7 @@ ${modePrompt}
               <div className="flex items-center justify-between mt-4 pt-3 border-t line gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[10.5px] mono ink-3 mr-1">막막하면 →</span>
-                  {PROBLEM_SEEDS.map((s, i) =>
+                  {_problemSeeds.map((s, i) =>
                   <button key={i} onClick={() => {setProblem(s);setChosen(i);}}
                   className={`text-[11.5px] px-2.5 py-1 rounded-md border ${chosen === i ? 't2-bg t2-bd t2-c' : 'line ink-2 surface'}`}>
                       예시 {i + 1}
@@ -1367,12 +1383,13 @@ const INTENT_SEED_MAP = {
   ],
 };
 
-function pickIntentSeeds(problem) {
-  if (!problem) return INTENT_SEED_MAP.default;
-  if (/도장|쿠폰|적립.*손|찍/.test(problem)) return INTENT_SEED_MAP['도장'];
-  if (/개인정보|전화번호|익명|노출/.test(problem)) return INTENT_SEED_MAP['개인정보'];
-  if (/단골|알아|식별|기억/.test(problem)) return INTENT_SEED_MAP['단골'];
-  return INTENT_SEED_MAP.default;
+function pickIntentSeeds(problem, seedMap) {
+  const map = seedMap || INTENT_SEED_MAP;
+  if (!problem) return map.default;
+  if (/도장|쿠폰|적립.*손|찍/.test(problem)) return map['도장'];
+  if (/개인정보|전화번호|익명|노출/.test(problem)) return map['개인정보'];
+  if (/단골|알아|식별|기억/.test(problem)) return map['단골'];
+  return map.default;
 }
 
 // Pre-baked direction cards (Condition A: expansive) — used as fallback / starter pool
@@ -1461,12 +1478,12 @@ function SolutionMockup({ kind }) {
   );
 }
 
-function Task3({ condition, state, setState, goToTab }) {
+function Task3({ condition, state, setState, goToTab, content }) {
   // stages: 'intent' | 'expand' | 'summary'
   const [stage, setStage] = React.useState('intent');
   const [intent, setIntent] = React.useState(state.t3?.intent || '');
   const [chosenSeed, setChosenSeed] = React.useState(-1);
-  const intentSeeds = React.useMemo(() => pickIntentSeeds(state.t2?.problem || state.t2?.hmw || ''), [state.t2?.problem, state.t2?.hmw]);
+  const intentSeeds = React.useMemo(() => pickIntentSeeds(state.t2?.problem || state.t2?.hmw || '', content?.task3?.intentSeedMap), [state.t2?.problem, state.t2?.hmw, content]);
   React.useEffect(() => { setChosenSeed(-1); }, [intentSeeds]);
   const [requestedAt, setRequestedAt] = React.useState(0);
 
@@ -1543,15 +1560,19 @@ ${intent}
       const text = await window.aiComplete(prompt);
       const m = text.match(/\{[\s\S]*\}/);
       const parsed = JSON.parse(m ? m[0] : text);
+      const _dirCards = (content?.task3?.directionCards) || DIRECTION_CARDS;
+      const _recSols = (content?.task3?.recommendedSolutions) || RECOMMENDED_SOLUTIONS;
       if (condition === 'A') {
-        setAiDirections(parsed.directions || DIRECTION_CARDS);
+        setAiDirections(parsed.directions || _dirCards);
       } else {
-        setAiSolutions(parsed.solutions || RECOMMENDED_SOLUTIONS);
+        setAiSolutions(parsed.solutions || _recSols);
       }
     } catch (e) {
       // Fallback to canned content
-      if (condition === 'A') setAiDirections(DIRECTION_CARDS);
-      else setAiSolutions(RECOMMENDED_SOLUTIONS);
+      const _dirCards = (content?.task3?.directionCards) || DIRECTION_CARDS;
+      const _recSols = (content?.task3?.recommendedSolutions) || RECOMMENDED_SOLUTIONS;
+      if (condition === 'A') setAiDirections(_dirCards);
+      else setAiSolutions(_recSols);
       console.error(e);
     } finally {
       setAiLoading(false);
@@ -2078,7 +2099,7 @@ const BASE_IA = [
   { id: 'set',   label: '설정',      children: ['연동'] },
 ];
 
-function buildIaAndPrdFromT3(state) {
+function buildIaAndPrdFromT3(state, t4Content) {
   const mode = state?.t3?.mode;
   const concepts = [];
   if (mode === 'A' && Array.isArray(state.t3?.selectedDirections)) {
@@ -2090,11 +2111,19 @@ function buildIaAndPrdFromT3(state) {
   }
 
   // Build IA: start from base, add screens matching the chosen concepts
-  const ia = BASE_IA.map(n => ({ ...n, children: [...n.children] }));
+  const _baseIa = (t4Content && t4Content.baseIa) || BASE_IA;
+  const _iaLib = ((t4Content && t4Content.conceptIaLibrary) || CONCEPT_IA_LIBRARY).map(item =>
+    item.matchPattern ? { ...item, match: new RegExp(item.matchPattern) } : item
+  );
+  const _prdLib = ((t4Content && t4Content.conceptPrdLibrary) || CONCEPT_PRD_LIBRARY).map(item =>
+    item.matchPattern ? { ...item, match: new RegExp(item.matchPattern) } : item
+  );
+  const _missingLib = (t4Content && t4Content.missingLibrary) || MISSING_LIBRARY;
+  const ia = _baseIa.map(n => ({ ...n, children: [...n.children] }));
   const seen = new Set();
   concepts.forEach(c => {
     const blob = `${c.title} ${c.desc}`;
-    CONCEPT_IA_LIBRARY.forEach(({ match, screen, under }) => {
+    _iaLib.forEach(({ match, screen, under }) => {
       if (match.test(blob) && !seen.has(screen)) {
         const node = ia.find(n => n.id === under);
         if (node) {
@@ -2111,7 +2140,7 @@ function buildIaAndPrdFromT3(state) {
   const featureSeen = new Set();
   concepts.forEach(c => {
     const blob = `${c.title} ${c.desc}`;
-    CONCEPT_PRD_LIBRARY.forEach(({ match, line }) => {
+    _prdLib.forEach(({ match, line }) => {
       if (match.test(blob) && !featureSeen.has(line)) {
         featureLines.push(line);
         featureSeen.add(line);
@@ -2133,15 +2162,15 @@ function buildIaAndPrdFromT3(state) {
   const hasPrivacy   = ['C-031','C-044','C-063'].some(id => codeIdPool.has(id));
   const presence = { 'stamp-loss': hasStampLoss, identify: hasIdentify, privacy: hasPrivacy };
 
-  const missing = MISSING_LIBRARY
+  const missing = _missingLib
     .filter(m => presence[m.cluster] || concepts.length === 0)
     .slice(0, 3);
 
   return { ia, prd, missing, concepts };
 }
 
-function Task4({ condition, state, setState }) {
-  const built = React.useMemo(() => buildIaAndPrdFromT3(state), [state?.t3?.mode, state?.t3?.selectedDirections, state?.t3?.adoptedSolution, state?.t2?.problem, state?.t2?.hmw]);
+function Task4({ condition, state, setState, content }) {
+  const built = React.useMemo(() => buildIaAndPrdFromT3(state, content?.task4), [state?.t3?.mode, state?.t3?.selectedDirections, state?.t3?.adoptedSolution, state?.t2?.problem, state?.t2?.hmw, content]);
 
   const [prd, setPrd] = React.useState(built.prd);
   const [ia, setIa] = React.useState(built.ia);
@@ -3283,6 +3312,7 @@ function App() {
   const [active, setActive] = useState(TAB_DEFS[0]);
   const [conditions, setConditions] = useState({ T1: 'B', T2: 'B', T3: 'B', T4: 'B' });
   const [showSummary, setShowSummary] = useState(false);
+  const [cluxContent, setCluxContent] = useState(null);
   const [state, setState] = useState({
     projectStarted: false,
     project: { name: '', goal: '', target: '' },
@@ -3292,6 +3322,14 @@ function App() {
     t2: { hmw: '어떻게 하면 사장님이 바쁜 와중에도 단골을 바로 알아볼 수 있을까?', hmwLocked: false },
     t3: { conceptCount: 0 }
   });
+
+  // Load content from JSON
+  React.useEffect(() => {
+    fetch('https://raw.githubusercontent.com/ilujh0507/sisu-t1/main/clux-content.json')
+      .then(r => r.json())
+      .then(data => { window.__cluxContent = data; setCluxContent(data); })
+      .catch(e => console.warn('clux-content.json 로드 실패, 기본 데이터 사용:', e));
+  }, []);
 
   // Listen for summary event from T4
   React.useEffect(() => {
@@ -3330,9 +3368,19 @@ function App() {
 
   const Comp = window[active.component];
 
+  const handleSetActive = React.useCallback((tab) => {
+    const num = tab.id.replace('T', '');
+    window.parent.postMessage({ type: 'CLUX_TASK_CHANGE', taskId: 'Task' + num, taskLabel: 'Task ' + num }, '*');
+    setActive(tab);
+  }, []);
+
   const goToTab = (id) => {
     const next = TAB_DEFS.find((t) => t.id === id);
-    if (next) setActive(next);
+    if (next) {
+      const num = id.replace('T', '');
+      window.parent.postMessage({ type: 'CLUX_TASK_CHANGE', taskId: 'Task' + num, taskLabel: 'Task ' + num }, '*');
+      setActive(next);
+    }
   };
 
   const startProject = (projectInfo, existingState) => {
@@ -3341,6 +3389,7 @@ function App() {
     } else {
       setState((s) => ({ ...s, projectStarted: true, project: projectInfo }));
     }
+    window.parent.postMessage({ type: 'CLUX_TASK_CHANGE', taskId: 'Task1', taskLabel: 'Task 1' }, '*');
     setActive(TAB_DEFS[0]);
   };
 
@@ -3353,11 +3402,11 @@ function App() {
   return (
     <div className="h-screen flex flex-col overflow-hidden" data-screen-label="Context-Linked UX Studio">
       {/* unified top bar */}
-      <TopBar active={active} setActive={setActive} conditions={conditions} setConditions={setConditions} />
+      <TopBar active={active} setActive={handleSetActive} conditions={conditions} setConditions={setConditions} />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar state={state} activeTab={active.id} onShowSummary={() => setShowSummary(true)} />
         <main className="flex-1 overflow-hidden surface" data-screen-label={`${active.id} ${active.label}`}>
-          {Comp ? <Comp condition={conditions[active.id]} state={state} setState={setState} goToTab={goToTab} /> : null}
+          {Comp ? <Comp condition={conditions[active.id]} state={state} setState={setState} goToTab={goToTab} content={cluxContent} /> : null}
         </main>
       </div>
       
@@ -3632,30 +3681,25 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
 
 <script>
-(function(){
-  var _lastTask = null;
-  function _sendTask(id, label){
-    if(id === _lastTask) return;
-    _lastTask = id;
-    window.parent.postMessage({
-      type: 'CLUX_TASK_CHANGE',
-      task: id, taskId: id, taskLabel: label || id, currentTask: id
-    }, '*');
-  }
-  document.addEventListener('click', function(e){
-    setTimeout(function(){
-      // 클릭 후 200ms 뒤 DOM에서 현재 Task 텍스트 찾기
-      var all = document.body.innerText || '';
-      var m = all.match(/Task\s*([1-4])/i);
-      if(m) _sendTask('Task'+m[1], 'Task '+m[1]);
-      // data 속성으로도 찾기
-      var el = document.querySelector('[data-task],[data-screen],[data-step],[data-page]');
-      if(el){
-        var v = el.dataset.task||el.dataset.screen||el.dataset.step||el.dataset.page;
-        if(v) _sendTask(v, v);
-      }
-    }, 200);
-  }, true);
+// postMessage for task changes is handled in the App component's handleSetActive and goToTab functions
+
+// Click event tracking
+document.addEventListener('click', function(e) {
+  window.parent.postMessage({ type: 'CLUX_EVENT', eventType: 'click', x: e.clientX, y: e.clientY }, '*');
+}, true);
+
+// Mouse hesitation tracking (2s+ stillness)
+(function() {
+  var _hesiTimer = null;
+  var _hesiX = 0, _hesiY = 0;
+  document.addEventListener('mousemove', function(e) {
+    clearTimeout(_hesiTimer);
+    _hesiX = e.clientX;
+    _hesiY = e.clientY;
+    _hesiTimer = setTimeout(function() {
+      window.parent.postMessage({ type: 'CLUX_EVENT', eventType: 'hesitation', x: _hesiX, y: _hesiY }, '*');
+    }, 2000);
+  }, false);
 })();
 </script>
 </body>
