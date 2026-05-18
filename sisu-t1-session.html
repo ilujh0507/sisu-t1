@@ -274,8 +274,24 @@ window.addEventListener('message',function(e){
     if(SESSION_ID)dbRef('live/'+SESSION_ID).update({phase:'done',status:'submitted',surveyCompletedAt:new Date().toISOString()});
     toast('설문 제출 완료');
   }
-  if(e.data.type==='CLUX_GO_SURVEY'||e.data.type==='go_survey'||e.data.type==='proto_complete'){
+  if(e.data.type==='CLUX_GO_SURVEY'){
+    if(e.data.protoResult && sessionRef){
+      sessionRef.update({protoResult: e.data.protoResult, protoResultSavedAt: new Date().toISOString()});
+      dbRef('live/'+SESSION_ID).update({protoResult: e.data.protoResult});
+    }
     switchToSurvey();
+  }
+  if(e.data.type==='go_survey'||e.data.type==='proto_complete'){
+    switchToSurvey();
+  }
+  if(e.data.type==='CLUX_TASK_DONE'){
+    if(sessionRef){
+      const key='taskResult_'+e.data.taskId;
+      const update_data={};
+      update_data[key]=Object.assign({savedAt:new Date().toISOString()},e.data.data||{});
+      sessionRef.update(update_data);
+      dbRef('live/'+SESSION_ID+'/taskProgress').update({[e.data.taskId]:Object.assign({savedAt:new Date().toISOString()},e.data.data||{})});
+    }
   }
   if(e.data.type==='CLUX_TASK_CHANGE'){
     const tid=e.data.taskId||e.data.task||'';
