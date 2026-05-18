@@ -191,11 +191,7 @@ function IntroScreen({ onStart }) {
 
   const startProject = () => {
     if (!canStart) return;
-    window.parent.postMessage({
-      type: 'CLUX_PARTICIPANT_NAME',
-      name: participantName.trim()
-    }, '*');
-    onStart({
+    onStart({ 
       name: name.trim(), 
       goal: goal.trim(), 
       target: target.trim(),
@@ -653,7 +649,6 @@ function Task1({ condition, state, setState, goToTab }) {
     setShowPopup(false);
     setAiOpened(false);
     setShowHandoff(true);
-    window.parent.postMessage({type:'CLUX_TASK_DONE', taskId:'T1', data:{clusters: aiResult?.clusters||[], condition: condition}}, '*');
   };
 
   // group codes by cluster for visualization
@@ -1164,7 +1159,6 @@ function Task2({ condition, state, setState, goToTab }) {
     if (!problem.trim()) return;
     setState((s) => ({ ...s, t2: { ...s.t2, problem, problemLocked: true, hmw: problem, hmwLocked: true, savedFeedback: aiText, savedAltProblem: recProblem }, progress: Math.max(s.progress, 0.52) }));
     setShowHandoff(true);
-    window.parent.postMessage({type:'CLUX_TASK_DONE', taskId:'T2', data:{problem: problem, condition: condition}}, '*');
   };
 
   React.useEffect(() => {setState((s) => ({ ...s, t2: { ...s.t2, problem, hmw: problem } }));}, [problem]);
@@ -1682,7 +1676,6 @@ ${intent}
       progress: Math.max(s.progress, 0.78),
     }));
     setStage('summary');
-    window.parent.postMessage({type:'CLUX_TASK_DONE', taskId:'T3', data:{selectedDirections: picked, condition: condition}}, '*');
   };
 
   const adoptRecommendation = (sol) => {
@@ -2612,28 +2605,26 @@ function Task4({ condition, state, setState }) {
               
               // Survey button handler
               document.getElementById('surveyBtn').onclick = () => {
-                const conditions = state.conditions || {};
-                const t1Insights = state.t1?.savedResult?.clusters || [];
-                const t2Problem = state.t2?.problem || state.t2?.hmw || '';
-                const t2Feedback = state.t2?.savedFeedback || '';
-                const t2AltProblem = state.t2?.savedAltProblem || '';
-                const t3Mode = state.t3?.mode;
-                const t3Intent = state.t3?.intent || '';
-                const t3Directions = state.t3?.selectedDirections || [];
-                const t3Solution = state.t3?.adoptedSolution;
-                const exportData = {
-                  timestamp: new Date().toISOString(),
-                  participant: state.project?.participant || {},
-                  project: { name: state.project?.name, goal: state.project?.goal },
-                  conditions: { T1: conditions.T1, T2: conditions.T2, T3: conditions.T3, T4: conditions.T4 },
-                  results: {
-                    T1_research: { condition: conditions.T1, clusters: t1Insights, locked: state.t1?.insightsLocked || false },
-                    T2_problem: { condition: conditions.T2, problem: t2Problem, aiFeedback: t2Feedback, alternativeProblem: t2AltProblem, locked: state.t2?.problemLocked || false },
-                    T3_ideation: { condition: conditions.T3, mode: t3Mode, intent: t3Intent, selectedDirections: t3Directions, adoptedSolution: t3Solution, conceptCount: state.t3?.conceptCount || 0, locked: state.t3?.conceptsLocked || false },
-                    T4_documentation: { condition: conditions.T4, completed: true },
-                  }
-                };
-                window.parent.postMessage({type:'CLUX_GO_SURVEY', protoResult: exportData}, '*');
+                // protoResult 수집 후 postMessage로 session.html에 전달
+                try {
+                  const s = window.__appState || {};
+                  const c = window.__appConditions || {};
+                  const protoResult = {
+                    timestamp: new Date().toISOString(),
+                    participant: s.project?.participant || {},
+                    project: { name: s.project?.name, goal: s.project?.goal },
+                    conditions: { T1: c.T1, T2: c.T2, T3: c.T3, T4: c.T4 },
+                    results: {
+                      T1_research: { condition: c.T1, clusters: s.t1?.savedResult?.clusters||[], locked: s.t1?.insightsLocked||false },
+                      T2_problem: { condition: c.T2, problem: s.t2?.problem||s.t2?.hmw||'', locked: s.t2?.problemLocked||false },
+                      T3_ideation: { condition: c.T3, selectedDirections: s.t3?.selectedDirections||[], conceptCount: s.t3?.conceptCount||0, locked: s.t3?.conceptsLocked||false },
+                      T4_documentation: { condition: c.T4, completed: true },
+                    }
+                  };
+                  window.parent.postMessage({type:'CLUX_GO_SURVEY', protoResult}, '*');
+                } catch(err) {
+                  window.parent.postMessage({type:'CLUX_GO_SURVEY'}, '*');
+                }
               };
             }}
             className="w-full py-2.5 rounded-lg t4-fill text-white text-[13px] font-semibold flex items-center justify-center gap-2">
@@ -3428,6 +3419,10 @@ function App() {
 
   // keep state.conditions in sync with conditions
   React.useEffect(() => {setState((s) => ({ ...s, conditions }));}, [conditions]);
+
+  // 전역에 state/conditions 노출 — 모달 내 surveyBtn에서 접근용
+  React.useEffect(() => { window.__appState = state; }, [state]);
+  React.useEffect(() => { window.__appConditions = conditions; }, [conditions]);
 
   // Load state from localStorage on mount - check for existing participant data
   React.useEffect(() => {

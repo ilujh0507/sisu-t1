@@ -507,9 +507,6 @@ select.input-field{cursor:pointer;width:auto;}
       <!-- 응답 목록 -->
       <div class="page" id="page-responses">
         <div class="page-header"><h1>응답 목록</h1><p>제출된 응답입니다. 테스트 응답은 휴지통으로 이동하세요.</p></div>
-        <div class="btn-row" style="margin-bottom:16px;">
-          <button class="btn btn-success" onclick="downloadZip()">📦 ZIP 다운로드</button>
-        </div>
         <div id="responses-list"><div class="empty-state">아직 응답이 없습니다.</div></div>
       </div>
 
@@ -601,7 +598,6 @@ document.addEventListener('DOMContentLoaded',function(){
 <!-- Firebase v8 compat — import 없이 전역 변수로 사용, 로컬 파일에서도 동작 -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 const FB={apiKey:"AIzaSyCoCG6FIxrt7rJ_WI8Rsrk-A2ueOQeuopU",authDomain:"sisu-t1-survey.firebaseapp.com",databaseURL:"https://sisu-t1-survey-default-rtdb.firebaseio.com",projectId:"sisu-t1-survey",storageBucket:"sisu-t1-survey.firebasestorage.app",messagingSenderId:"338910893000",appId:"1:338910893000:web:517b459a9bf3ec1f1426fd"};
 const app=firebase.initializeApp(FB);
@@ -839,6 +835,17 @@ function renderLive(){
     let badgeText=isDone?'✓ 완료':isSurvey?'📝 설문 중':'🔬 탐험 중';
     const t=s.startedAt?new Date(s.startedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
     const liveName=escapeHtml((s.respondentName||s.participantName||s.name||'').trim()||'이름 입력 전');
+    // Task 진행 상황 행 생성
+    const taskRows=Object.entries(s.taskProgress||{}).map(([tid,t])=>{
+      const labels={'T1':'리서치 분석','T2':'문제 정의','T3':'아이디어'};
+      const label=labels[tid]||tid;
+      let detail='';
+      if(tid==='T1'&&t.clusters)detail=t.clusters.length+'개 클러스터 확정';
+      else if(tid==='T2'&&t.problem)detail=escapeHtml(String(t.problem).slice(0,40))+'…';
+      else if(tid==='T3'&&t.selectedDirections)detail=t.selectedDirections.length+'개 방향 선택';
+      const ts=t.savedAt?new Date(t.savedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
+      return'<div class="live-row" style="align-items:flex-start;"><span class="live-key" style="min-width:200px;max-width:340px;white-space:normal;line-height:1.5;color:var(--green);">✓ Task '+label+' 완료</span><span class="live-val lv-text">'+detail+'</span><span class="live-chts">'+ts+'</span></div>';
+    }).join('');
     const rows=Object.entries(s.answers||{}).map(([k,v])=>{
       let val='';
       if(v.type==='likert'&&v.answer)val='<span class="live-val lv-likert">'+v.answer+'점</span>';
@@ -849,7 +856,8 @@ function renderLive(){
       const label=getQuestionLabelByKey(k,v);
       return'<div class="live-row" style="align-items:flex-start;"><span class="live-key" style="min-width:200px;max-width:340px;white-space:normal;line-height:1.5;word-break:keep-all;">'+escapeHtml(label)+'</span>'+val+'<span class="live-chts">'+ts+'</span></div>';
     }).filter(Boolean).join('');
-    return'<div class="live-card"><div class="live-header"><span class="live-id">'+liveName+'</span><span class="live-badge '+badgeClass+'">'+badgeText+'</span><span class="live-ts-main">시작 '+t+'</span></div>'+(rows||'<div style="font-size:13px;color:var(--text-muted);">아직 응답 없음</div>')+'</div>';
+    const allRows=(taskRows+rows)||(isSurvey||isDone?'<div style="font-size:13px;color:var(--text-muted);">아직 응답 없음</div>':'<div style="font-size:13px;color:var(--text-muted);">🔬 인터뷰 코드 분석 중 · 아직 설문 미진입</div>');
+    return'<div class="live-card"><div class="live-header"><span class="live-id">'+liveName+'</span><span class="live-badge '+badgeClass+'">'+badgeText+'</span><span class="live-ts-main">시작 '+t+'</span></div>'+allRows+'</div>';
   }).join('');
 }
 
@@ -1499,69 +1507,6 @@ window.exportCsv=function(){
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='SISU_T1_응답_분석용_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
-  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
-};
-
-/* ─── ZIP DOWNLOAD ─── */
-window.downloadZip=async function(){
-  if(!activeResp.length){alert('내보낼 응답이 없습니다.');return;}
-  if(typeof JSZip==='undefined'){alert('JSZip 라이브러리가 로드되지 않았습니다.');return;}
-  const sorted=[...activeResp].sort(function(a,b){return new Date(a.submittedAt)-new Date(b.submittedAt);});
-  const qItems=getQuestionItems();
-
-  // Firebase sessions 전체 읽기
-  let sessionsData={};
-  try{
-    const snap=await dbRef('sessions').once('value');
-    sessionsData=snap.val()||{};
-  }catch(e){console.warn('sessions 읽기 실패',e);}
-
-  // 이름으로도 찾을 수 있도록 인덱스 구성
-  const sessionByName={};
-  Object.values(sessionsData).forEach(function(s){
-    if(s.participantName)sessionByName[s.participantName.trim()]=s;
-  });
-
-  // 프로토타입 결과 CSV
-  const protoHeaders=['참여자명','조건_T1','조건_T2','조건_T3','조건_T4','T1_클러스터수','T2_문제정의','T3_방향수','T4_완료여부','저장시각'];
-  const protoRows=[protoHeaders];
-  sorted.forEach(function(r,i){
-    const name=getRespondentName(r,i);
-    const sess=sessionsData[r.session||r.sessionId||'']||sessionByName[name.trim()]||{};
-    const pr=sess.protoResult||{};
-    const conds=pr.conditions||{};
-    const results=pr.results||{};
-    protoRows.push([
-      name,
-      conds.T1||'',conds.T2||'',conds.T3||'',conds.T4||'',
-      results.T1_research?.clusters?.length??'',
-      results.T2_problem?.problem||'',
-      results.T3_ideation?.selectedDirections?.length??'',
-      results.T4_documentation?.completed?'Y':'',
-      sess.protoResultSavedAt||''
-    ]);
-  });
-  const protoCsv=protoRows.map(function(r){return r.map(csvCell).join(',');}).join('\n');
-
-  // 설문 응답 CSV
-  const surveyHeaders=['참여자명','세션ID','제출시각'].concat(qItems.map(function(item){return item.no+'. '+getQuestionLabel(item.q);}));
-  const surveyRows=[surveyHeaders];
-  sorted.forEach(function(r,i){
-    const row=[getRespondentName(r,i),r.session||r.sessionId||'',r.submittedAt||''];
-    qItems.forEach(function(item){row.push(r.answers?.[item.k]?.answer??'');});
-    surveyRows.push(row);
-  });
-  const surveyCsv=surveyRows.map(function(r){return r.map(csvCell).join(',');}).join('\n');
-
-  // ZIP 생성 및 다운로드
-  const zip=new JSZip();
-  zip.file('proto_results.csv','﻿'+protoCsv);
-  zip.file('survey_responses.csv','﻿'+surveyCsv);
-  const blob=await zip.generateAsync({type:'blob'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='sisu-t1-results_'+new Date().toISOString().slice(0,10)+'.zip';
-  a.click();
   setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
 };
 
