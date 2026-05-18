@@ -3461,6 +3461,9 @@ function App() {
       setState(existingState);
     } else {
       setState((s) => ({ ...s, projectStarted: true, project: projectInfo }));
+      // session.html에 참여자 이름 전달 → 세션 자동 시작
+      const pName = projectInfo?.participant?.name || '';
+      if(pName) window.parent.postMessage({type:'CLUX_PARTICIPANT_NAME', name: pName}, '*');
     }
     setActive(TAB_DEFS[0]);
   };
