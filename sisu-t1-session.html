@@ -40,8 +40,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #load-btn{background:var(--surface);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:6px 12px;font-size:12px;white-space:nowrap;transition:background .15s;}
 #load-btn:hover{background:var(--accent-soft);}
 #split-wrap{display:flex;height:calc(100vh - 48px);}
-#proto-pane{flex:0 0 65%;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative;}
-#survey-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#proto-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+#survey-pane{display:none;flex-direction:column;overflow:hidden;}
 .pane-label{font-size:11px;color:var(--text-muted);padding:6px 12px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .pane-label strong{font-weight:500;color:var(--text);}
 #proto-frame,#survey-frame{flex:1;border:none;background:#fff;}
@@ -253,10 +253,35 @@ function initProtoTracking(){
   }
 }
 
+function switchToSurvey(){
+  if(!sessionActive)return;
+  saveLog('proto_completed',{ts:new Date().toISOString()});
+  sessionRef.update({protoCompletedAt:new Date().toISOString(),phase:'survey'});
+  const protoPane=document.getElementById('proto-pane');
+  const surveyPane=document.getElementById('survey-pane');
+  const surveyFrame=document.getElementById('survey-frame');
+  protoPane.style.display='none';
+  surveyPane.style.display='flex';
+  surveyPane.style.flex='1';
+  if(!surveyFrame.src||surveyFrame.src==='about:blank'){
+    surveyFrame.src='sisu-t1-survey.html?name='+encodeURIComponent(participantName)+'&session='+SESSION_ID+'&embedded=1';
+  }
+  document.getElementById('task-indicator').textContent='설문 진행 중';
+  toast('✅ 프로토타입 완료 — 설문으로 이동합니다');
+}
+
 window.addEventListener('message',function(e){
   if(!e.data||typeof e.data!=='object')return;
   if(e.data.type==='task_change')lastTaskName=e.data.task;
-  if(e.data.type==='survey_submitted')toast('설문 제출 완료');
+  if(e.data.type==='survey_submitted'){
+    saveLog('survey_completed',{ts:new Date().toISOString()});
+    sessionRef.update({surveyCompletedAt:new Date().toISOString(),phase:'done'});
+    toast('설문 제출 완료');
+  }
+  // CLUX에서 설문 참여 버튼 클릭 시
+  if(e.data.type==='CLUX_GO_SURVEY'||e.data.type==='go_survey'||e.data.type==='proto_complete'){
+    switchToSurvey();
+  }
   if(e.data.type==='CLUX_TASK_CHANGE'){
     const tid=e.data.taskId||e.data.task||'';
     const label=e.data.taskLabel||tid;
@@ -268,6 +293,12 @@ window.addEventListener('message',function(e){
       saveLog('task_change',{task:t,taskId:tid,label:label});
       toast('📍 '+(label||t));
     }
+  }
+  if(e.data.type==='CLUX_EVENT'){
+    if(e.data.eventType==='click')
+      saveLog('click',{x:Math.round(e.data.x||0),y:Math.round(e.data.y||0)});
+    if(e.data.eventType==='hesitation')
+      saveLog('hesitation',{x:Math.round(e.data.x||0),y:Math.round(e.data.y||0)});
   }
 });
 
