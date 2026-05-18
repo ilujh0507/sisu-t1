@@ -154,18 +154,24 @@ function update(r,v){return r.update(v);}
 function remove(r){return r.remove();}
 function onDisconnect(r){return r.onDisconnect();}
 
-const SESSION_ID='live_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
-const liveRef=dbRef('live/'+SESSION_ID);
-
 // URL 파라미터로 이름·세션 수신 (통합 html에서 호출 시)
 const _urlParams=new URLSearchParams(window.location.search);
 const _urlName=_urlParams.get('name')||'';
 const _urlSession=_urlParams.get('session')||'';
 const _embedded=_urlParams.get('embedded')==='1';
 
+// embedded 모드면 session.html이 만든 세션 ID 재사용, 아니면 새로 생성
+const SESSION_ID=(_embedded&&_urlSession)?_urlSession:('live_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5));
+const liveRef=dbRef('live/'+SESSION_ID);
+
 // 세션 시작 & 이탈 감지
-set(liveRef,{startedAt:new Date().toISOString(),status:'active',respondentName:_urlName,answers:{},embeddedSession:_urlSession||''});
-onDisconnect(liveRef).remove();
+// embedded 모드면 기존 세션에 설문 시작 정보만 업데이트, 아니면 새로 생성
+if(_embedded&&_urlSession){
+  update(liveRef,{surveyStartedAt:new Date().toISOString(),phase:'survey',respondentName:_urlName||undefined,answers:{}});
+}else{
+  set(liveRef,{startedAt:new Date().toISOString(),status:'active',respondentName:_urlName,answers:{},embeddedSession:_urlSession||''});
+  onDisconnect(liveRef).remove();
+}
 
 const sessLabel=document.getElementById('session-label');
 const respondentNameEl=document.getElementById('respondent-name');
