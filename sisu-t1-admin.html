@@ -63,15 +63,10 @@ select.input-field{cursor:pointer;width:auto;}
 .badge-likert{background:var(--accent-soft);color:var(--accent);}
 .badge-ab-a{background:rgba(74,222,128,.12);color:var(--green);}
 .badge-ab-b{background:rgba(251,191,36,.12);color:var(--yellow);}
-.badge-choice{background:rgba(251,146,60,.12);color:#fb923c;}
 .type-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;padding:4px 8px;border-radius:5px;flex-shrink:0;}
 .type-likert{background:var(--accent-soft);color:var(--accent);}
 .type-ab{background:rgba(74,222,128,.1);color:var(--green);}
 .type-text{background:rgba(251,191,36,.1);color:var(--yellow);}
-.type-choice{background:rgba(251,146,60,.1);color:#fb923c;}
-/* choice 편집 */
-.choice-option-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
-.choice-option-row input{flex:1;}
 .empty-state{text-align:center;padding:48px;color:var(--text-muted);font-size:14px;}
 /* Chart grid */
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -376,16 +371,14 @@ select.input-field{cursor:pointer;width:auto;}
   <nav class="sidebar" id="sidebar">
     <div class="sb-logo"><div class="lbl">SISU · Team 1</div><h2>관리자 패널</h2></div>
     <div class="nav-item active" data-page="dashboard"><span class="nav-icon">◎</span> 실시간 대시보드</div>
-    <div class="nav-item" data-page="editor"><span class="nav-icon">✎</span> 설문 편집기</div>
-    <div class="nav-sep"></div>
-    <div class="nav-item" data-page="sessions"><span class="nav-icon">⦿</span> 라이브 모니터</div>
-    <div class="nav-item" data-page="live"><span class="nav-icon">⚡</span> 실시간 응답</div>
-    <div class="nav-sep"></div>
-    <div class="nav-item" data-page="responses"><span class="nav-icon">≡</span> 응답 목록</div>
     <div class="nav-item" data-page="analytics"><span class="nav-icon">📈</span> 종합 분석</div>
+    <div class="nav-item" data-page="live"><span class="nav-icon">⚡</span> 라이브 모니터</div>
+    <div class="nav-sep"></div>
+    <div class="nav-item" data-page="editor"><span class="nav-icon">✎</span> 설문 편집</div>
     <div class="nav-item" data-page="tasks"><span class="nav-icon">⊞</span> Task / Micro 변수</div>
     <div class="nav-item" data-page="dvars"><span class="nav-icon">◈</span> 종속변수 설계</div>
     <div class="nav-sep"></div>
+    <div class="nav-item" data-page="responses"><span class="nav-icon">≡</span> 응답 목록</div>
     <div class="nav-item" data-page="trash"><span class="nav-icon">🗑</span> 휴지통</div>
   </nav>
 
@@ -523,55 +516,6 @@ select.input-field{cursor:pointer;width:auto;}
         <div class="trash-warn">⚠ 영구 삭제는 복원이 불가합니다.</div>
         <div id="trash-list"><div class="empty-state">휴지통이 비어 있습니다.</div></div>
       </div>
-
-      <!-- 라이브 모니터 — CLUX 직접 모니터링 -->
-      <div class="page" id="page-sessions">
-        <div class="page-header">
-          <h1>라이브 모니터</h1>
-          <p>참여자가 CLUX 프로토타입을 진행하는 동안 실시간으로 모니터링합니다.</p>
-        </div>
-        <!-- 상단 컨트롤 바 -->
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div id="live-status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--border);"></div>
-            <span id="live-status-label" style="font-size:12px;color:var(--text-muted);">대기 중</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
-            <div class="stat-card" style="padding:8px 16px;display:inline-flex;gap:16px;align-items:center;">
-              <span style="font-size:11px;color:var(--text-muted);">클릭</span>
-              <span id="lm-clicks" style="font-size:16px;font-weight:700;color:var(--accent);">0</span>
-              <span style="font-size:11px;color:var(--text-muted);">머뭇거림</span>
-              <span id="lm-hesitations" style="font-size:16px;font-weight:700;color:var(--yellow);">0</span>
-              <span style="font-size:11px;color:var(--text-muted);">Task</span>
-              <span id="lm-task" style="font-size:14px;font-weight:700;color:var(--green);">—</span>
-            </div>
-            <button onclick="resetLiveMonitor()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;">초기화</button>
-          </div>
-        </div>
-        <!-- 메인 영역: CLUX iframe + 로그 피드 -->
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
-          <div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px);">프로토타입 화면</div>
-            <div style="position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#000;" id="lm-proto-wrap">
-              <iframe id="lm-proto-frame"
-                src="https://ilujh0507.github.io/sisu-t1/CLUX_standalone.html"
-                style="width:100%;height:540px;border:none;">
-              </iframe>
-              <!-- 클릭 위치 표시 -->
-              <div id="lm-click-dot" style="position:absolute;width:16px;height:16px;border-radius:50%;background:rgba(124,108,252,.7);pointer-events:none;display:none;transform:translate(-50%,-50%);transition:opacity .4s;z-index:10;"></div>
-              <!-- 머뭇거림 링 -->
-              <div id="lm-hesitation-ring" style="position:absolute;width:44px;height:44px;border-radius:50%;border:2px solid #fbbf24;opacity:0;transform:translate(-50%,-50%);pointer-events:none;transition:opacity .3s;z-index:10;"></div>
-            </div>
-          </div>
-          <!-- 실시간 로그 -->
-          <div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">실시간 이벤트 로그</div>
-            <div id="lm-log-feed" style="height:540px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;font-family:'DM Mono',monospace;display:flex;flex-direction:column;gap:4px;">
-              <div style="color:var(--text-muted);">참여자가 프로토타입을 시작하면 이벤트가 표시됩니다.</div>
-            </div>
-          </div>
-        </div>
-      </div>
     </main>
   </div>
 </div>
@@ -597,7 +541,7 @@ select.input-field{cursor:pointer;width:auto;}
 
 <!-- ★ nav 전용 일반 스크립트: module보다 먼저, 즉시 실행 -->
 <script>
-const _PT={dashboard:'실시간 대시보드',analytics:'종합 분석',live:'실시간 응답',editor:'설문 편집기',tasks:'Task / Micro 변수',dvars:'종속변수 설계',responses:'응답 목록',trash:'휴지통',sessions:'라이브 모니터'};
+const _PT={dashboard:'실시간 대시보드',analytics:'종합 분석',live:'라이브 모니터',editor:'설문 편집',tasks:'Task / Micro 변수',dvars:'종속변수 설계',responses:'응답 목록',trash:'휴지통'};
 
 function isMobile(){return window.innerWidth<=767;}
 
@@ -607,18 +551,19 @@ function showPage(p){
   var pg=document.getElementById('page-'+p);
   if(pg) pg.classList.add('active');
   document.querySelectorAll('[data-page="'+p+'"]').forEach(x=>x.classList.add('active'));
+  // onclick 방식 탭바도 active 처리
   document.querySelectorAll('.mob-nav-item').forEach(x=>{
     if(x.getAttribute('onclick')==="showPage('"+p+"')") x.classList.add('active');
   });
   var tb=document.getElementById('topbar-title');
   if(tb) tb.textContent=_PT[p]||p;
+  // 탭 진입 시 최신 데이터로 재렌더링
   if(p==='analytics' && typeof window._renderAnalytics==='function') window._renderAnalytics();
   if(p==='editor'    && typeof window._renderEditor==='function')    window._renderEditor();
   if(p==='tasks'     && typeof window._renderTasks==='function')     window._renderTasks();
   if(p==='dvars'     && typeof window._renderDvars==='function')     window._renderDvars();
   if(p==='responses' && typeof window._renderRespList==='function')  window._renderRespList();
   if(p==='trash'     && typeof window._renderTrash==='function')     window._renderTrash();
-  if(p==='sessions'  && typeof window._renderSessions==='function')  window._renderSessions();
   if(isMobile()) closeSidebar();
 }
 
@@ -762,7 +707,6 @@ function getAnswerDisplay(v){
   if(!v)return '<span class="ans-val" style="color:var(--text-muted);font-size:12px;">미응답</span>';
   if(v.type==='likert'&&v.answer)return '<span class="ans-val badge badge-likert">'+escapeHtml(v.answer)+'점</span>';
   if(v.type==='ab'&&v.answer)return '<span class="ans-val badge '+(v.answer==='A'?'badge-ab-a':'badge-ab-b')+'">'+escapeHtml(v.answer)+'안</span>';
-  if(v.type==='choice'&&v.answer)return '<span class="ans-val badge badge-choice">'+escapeHtml(v.answer)+'</span>';
   if(v.type==='text'&&v.answer)return '<span class="ans-val" style="color:var(--text);font-size:13px;white-space:normal;">'+escapeHtml(v.answer)+'</span>';
   return '<span class="ans-val" style="color:var(--text-muted);font-size:12px;">미응답</span>';
 }
@@ -804,6 +748,8 @@ onValue(dbRef('trash'),snap=>{
   trashResp=Object.entries(d).map(([k,v])=>({_key:k,...v}));
   document.getElementById('stat-trash').textContent=trashResp.length||'—';
   renderTrash();
+  const now=Date.now();
+  trashResp.forEach(r=>{if(r.submittedAt&&now-new Date(r.submittedAt).getTime()>3600000)remove(dbRef('trash/'+r._key));});
 });
 onValue(dbRef('live'),snap=>{
   liveSessions=snap.val()||{};
@@ -855,23 +801,6 @@ function renderDashboard(){
         const filled=answers.filter(a=>a&&a.trim());
         inner='<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">서술형 응답 <strong style="color:var(--text)">'+filled.length+'</strong>건</div>';
         filled.forEach(a=>{inner+='<div style="font-size:13px;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;color:var(--text);line-height:1.6;">'+a+'</div>';});
-      }else if(q.type==='choice'){
-        // 선택지별 집계
-        const countMap={};
-        answers.forEach(a=>{if(a){const k=a.startsWith('기타:')?'기타':a;countMap[k]=(countMap[k]||0)+1;}});
-        const total=answers.length||1;
-        const sorted=Object.entries(countMap).sort((a,b)=>b[1]-a[1]);
-        inner='<div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">'
-          +sorted.map(([opt,cnt])=>{
-            const pct=Math.round(cnt/total*100);
-            return '<div style="display:flex;align-items:center;gap:10px;font-size:13px;">'
-              +'<div style="flex:0 0 160px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+opt+'</div>'
-              +'<div style="flex:1;background:var(--border);border-radius:4px;height:10px;overflow:hidden;">'
-              +'<div style="height:100%;background:#fb923c;border-radius:4px;width:'+pct+'%"></div></div>'
-              +'<div style="flex:0 0 52px;text-align:right;color:var(--text-muted);font-family:\'DM Mono\',monospace;font-size:12px;">'+cnt+'명 ('+pct+'%)</div>'
-              +'</div>';
-          }).join('')
-          +'</div>';
       }
       items.push('<div class="chart-item"><div class="chart-q-tag">'+tagParts.join(' · ')+'</div><div class="chart-q-text">'+q.text+'</div>'+inner+'</div>');
     });
@@ -907,7 +836,6 @@ function renderLive(){
       let val='';
       if(v.type==='likert'&&v.answer)val='<span class="live-val lv-likert">'+v.answer+'점</span>';
       else if(v.type==='ab'&&v.answer)val='<span class="live-val '+(v.answer==='A'?'lv-a':'lv-b')+'">'+v.answer+'안 선택</span>';
-      else if(v.type==='choice'&&v.answer)val='<span class="live-val" style="background:rgba(251,146,60,.12);color:#fb923c;padding:2px 8px;border-radius:5px;font-size:12px;">'+v.answer+'</span>';
       else if(v.type==='text')val='<span class="live-val lv-text">'+(v.answer||'(입력 중...)')+'</span>';
       else return'';
       const ts=v.changedAt?new Date(v.changedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
@@ -945,7 +873,6 @@ function renderEditor(){
       +'<div class="btn-row">'
       +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'likert\')">+ 리커트</button>'
       +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'ab\')">+ A/B 선택</button>'
-      +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'choice\')">+ 객관식</button>'
       +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'text\')">+ 서술형</button>'
       +'</div>';
     c.appendChild(el);
@@ -965,8 +892,8 @@ function renderQs(si,qs){
 
   qs.forEach(function(q,qi){
     const key=si+'-'+qi;
-    const tC=q.type==='likert'?'type-likert':q.type==='ab'?'type-ab':q.type==='choice'?'type-choice':'type-text';
-    const tL=q.type==='likert'?'5점 리커트':q.type==='ab'?'A/B 선택':q.type==='choice'?'객관식':'서술형';
+    const tC=q.type==='likert'?'type-likert':q.type==='ab'?'type-ab':'type-text';
+    const tL=q.type==='likert'?'5점 리커트':q.type==='ab'?'A/B 선택':'서술형';
     const el=document.createElement('div');
     el.className='q-editor'+(reorderMode&&selectedQs.has(key)?' selected':'');
     el.dataset.key=key;el.dataset.si=si;el.dataset.qi=qi;
@@ -985,20 +912,7 @@ function renderQs(si,qs){
     let extra='';
     if(q.type==='likert')extra+='<label class="chk-row"><input type="checkbox" '+(q.reversed?'checked':'')+' onchange="upQ('+si+','+qi+',\'reversed\',this.checked)"> 역문항 (점수 반전)</label>';
     if(q.type==='text')extra+='<label class="chk-row"><input type="checkbox" '+(q.noDv?'checked':'')+' onchange="upQ('+si+','+qi+',\'noDv\',this.checked);renderEditor()"> 종속변수 없음</label>';
-    if(q.type==='choice'){
-      const opts=Array.isArray(q.options)?q.options:[''];
-      extra+='<div style="margin-top:8px;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">선택지 (한 줄에 하나씩)</div>';
-      opts.forEach(function(opt,oi){
-        extra+='<div class="choice-option-row">'
-          +'<input class="input-field" style="font-size:13px;" placeholder="선택지 '+(oi+1)+'" value="'+opt.replace(/"/g,'&quot;')+'" oninput="upChoiceOpt('+si+','+qi+','+oi+',this.value)">'
-          +'<button class="btn btn-danger btn-sm" onclick="rmChoiceOpt('+si+','+qi+','+oi+')">✕</button>'
-          +'</div>';
-      });
-      extra+='<button class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="addChoiceOpt('+si+','+qi+')">+ 선택지 추가</button>'
-        +'<label class="chk-row" style="margin-top:8px;"><input type="checkbox" '+(q.hasOther!==false?'checked':'')+' onchange="upQ('+si+','+qi+',\'hasOther\',this.checked)"> 기타 항목 포함</label>'
-        +'</div>';
-    }
-    const showDv=q.type!=='ab'&&q.type!=='choice'&&!(q.type==='text'&&q.noDv);
+    const showDv=q.type!=='ab'&&!(q.type==='text'&&q.noDv);
 
     el.innerHTML='<div class="q-row">'
       +'<div class="q-reorder-handle" title="드래그하여 이동">⠿</div>'
@@ -1189,22 +1103,7 @@ window.upSec=function(si,f,v){curSecs[si][f]=v;};
 window.upQ=function(si,qi,f,v){curSecs[si].questions[qi][f]=v;};
 window.addSection=function(){curSecs.push({tag:'',title:'',questions:[]});renderEditor();};
 window.rmSec=function(si){if(confirm('섹션을 삭제할까요?')){curSecs.splice(si,1);renderEditor();}};
-window.addQ=function(si,type){
-  const q={type:type,text:'',required:true,taskNum:'',dvName:'',reversed:false,noDv:false};
-  if(type==='choice')Object.assign(q,{options:['','',''],hasOther:true});
-  curSecs[si].questions.push(q);renderEditor();
-};
-window.upChoiceOpt=function(si,qi,oi,v){
-  if(!Array.isArray(curSecs[si].questions[qi].options))curSecs[si].questions[qi].options=[];
-  curSecs[si].questions[qi].options[oi]=v;
-};
-window.addChoiceOpt=function(si,qi){
-  if(!Array.isArray(curSecs[si].questions[qi].options))curSecs[si].questions[qi].options=[];
-  curSecs[si].questions[qi].options.push('');renderEditor();
-};
-window.rmChoiceOpt=function(si,qi,oi){
-  curSecs[si].questions[qi].options.splice(oi,1);renderEditor();
-};
+window.addQ=function(si,type){curSecs[si].questions.push({type:type,text:'',required:true,taskNum:'',dvName:'',reversed:false,noDv:false});renderEditor();};
 window.rmQ=function(si,qi){
   if(reorderMode&&selectedQs.size>=2&&selectedQs.has(si+'-'+qi)){doDeleteSelected();return;}
   curSecs[si].questions.splice(qi,1);renderEditor();
@@ -1567,18 +1466,7 @@ window.fromTrash=function(k){
   const d=Object.assign({},r);delete d._key;
   set(dbRef('responses/'+k),d).then(function(){remove(dbRef('trash/'+k));});
 };
-window.permDel=function(k){
-  if(confirm('영구 삭제하면 복원이 불가합니다. 계속할까요?')){
-    const r=trashResp.find(x=>x._key===k);
-    if(r){
-      const d=Object.assign({},r);delete d._key;
-      d._deletedAt=new Date().toISOString();
-      set(dbRef('backup/'+k),d).then(function(){remove(dbRef('trash/'+k));});
-    } else {
-      remove(dbRef('trash/'+k));
-    }
-  }
-};
+window.permDel=function(k){if(confirm('영구 삭제하면 복원이 불가합니다. 계속할까요?'))remove(dbRef('trash/'+k));};
 
 /* ─── CSV EXPORT ─── */
 window.exportCsv=function(){
@@ -1769,254 +1657,6 @@ function renderAnalytics(){
   // Career
   document.getElementById('ana-career').innerHTML='<div class="empty-state">경력 구분 문항(주니어/시니어 등 키워드 포함)이 설문에 없습니다.</div>';
 }
-
-/* ═══════════════════════════════════════
-   라이브 모니터 — postMessage 기반
-═══════════════════════════════════════ */
-let _lmClicks=0, _lmHesitations=0;
-
-function resetLiveMonitor(){
-  _lmClicks=0; _lmHesitations=0;
-  document.getElementById('lm-clicks').textContent='0';
-  document.getElementById('lm-hesitations').textContent='0';
-  document.getElementById('lm-task').textContent='—';
-  document.getElementById('lm-log-feed').innerHTML='<div style="color:var(--text-muted);">초기화됨</div>';
-  document.getElementById('lm-status-dot').style.background='var(--border)';
-  document.getElementById('lm-status-label').textContent='대기 중';
-}
-
-function lmAddLog(color, label, detail){
-  const feed=document.getElementById('lm-log-feed');
-  if(!feed)return;
-  const time=new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const entry=document.createElement('div');
-  entry.style.cssText='display:flex;gap:6px;align-items:baseline;border-bottom:1px solid var(--border);padding-bottom:4px;flex-shrink:0;';
-  entry.innerHTML='<span style="color:'+color+';font-weight:500;white-space:nowrap;">'+label+'</span>'
-    +'<span style="color:#555;font-size:10px;white-space:nowrap;">'+time+'</span>'
-    +'<span style="color:var(--text-muted);font-size:10px;word-break:break-all;">'+escapeHtml(String(detail||''))+'</span>';
-  feed.appendChild(entry);
-  feed.scrollTop=feed.scrollHeight;
-}
-
-function lmShowClick(x, y){
-  const wrap=document.getElementById('lm-proto-wrap');
-  const dot=document.getElementById('lm-click-dot');
-  if(!wrap||!dot)return;
-  const frame=document.getElementById('lm-proto-frame');
-  const rect=frame.getBoundingClientRect();
-  const wrapRect=wrap.getBoundingClientRect();
-  const scaleX=frame.offsetWidth/(frame.contentWindow?.innerWidth||frame.offsetWidth||1);
-  const scaleY=frame.offsetHeight/(frame.contentWindow?.innerHeight||frame.offsetHeight||1);
-  dot.style.left=Math.round(x*scaleX)+'px';
-  dot.style.top=Math.round(y*scaleY)+'px';
-  dot.style.display='block';dot.style.opacity='1';
-  setTimeout(()=>{dot.style.opacity='0';setTimeout(()=>dot.style.display='none',400);},600);
-}
-
-function lmShowHesitation(x, y){
-  const ring=document.getElementById('lm-hesitation-ring');
-  const frame=document.getElementById('lm-proto-frame');
-  if(!ring||!frame)return;
-  const scaleX=frame.offsetWidth/(frame.contentWindow?.innerWidth||frame.offsetWidth||1);
-  const scaleY=frame.offsetHeight/(frame.contentWindow?.innerHeight||frame.offsetHeight||1);
-  ring.style.left=Math.round(x*scaleX)+'px';
-  ring.style.top=Math.round(y*scaleY)+'px';
-  ring.style.opacity='1';
-  setTimeout(()=>ring.style.opacity='0',1500);
-}
-
-window.addEventListener('message',function(e){
-  if(!e.data||typeof e.data!=='object')return;
-
-  // CLUX Task 전환
-  if(e.data.type==='CLUX_TASK_CHANGE'){
-    const label=e.data.taskLabel||e.data.taskId||'';
-    document.getElementById('lm-task').textContent=label;
-    document.getElementById('lm-status-dot').style.background='var(--green)';
-    document.getElementById('lm-status-label').textContent='진행 중';
-    lmAddLog('#4ade80','Task 전환',label);
-  }
-
-  // CLUX 클릭/머뭇거림
-  if(e.data.type==='CLUX_EVENT'){
-    if(e.data.eventType==='click'){
-      _lmClicks++;
-      document.getElementById('lm-clicks').textContent=_lmClicks;
-      lmShowClick(e.data.x||0, e.data.y||0);
-      lmAddLog('#7C6CFC','클릭','x:'+Math.round(e.data.x||0)+' y:'+Math.round(e.data.y||0));
-    }
-    if(e.data.eventType==='hesitation'){
-      _lmHesitations++;
-      document.getElementById('lm-hesitations').textContent=_lmHesitations;
-      lmShowHesitation(e.data.x||0, e.data.y||0);
-      lmAddLog('#fbbf24','머뭇거림','x:'+Math.round(e.data.x||0)+' y:'+Math.round(e.data.y||0));
-    }
-  }
-});
-let allSessions={};
-let currentSessionKey=null;
-let currentSessionLogsRef=null;
-let elapsedTimer=null;
-let sessionStartTime=null;
-
-// Firebase sessions 실시간 구독
-onValue(dbRef('sessions'),function(snap){
-  allSessions=snap.val()||{};
-  if(typeof window._renderSessions==='function') window._renderSessions();
-  // 현재 열린 세션 상세도 갱신
-  if(currentSessionKey && allSessions[currentSessionKey]){
-    updateSessionStats();
-  }
-});
-
-window._renderSessions=function(){
-  const cards=document.getElementById('session-cards');
-  if(!cards)return;
-  const entries=Object.entries(allSessions).sort((a,b)=>new Date(b[1].startedAt||0)-new Date(a[1].startedAt||0));
-  if(!entries.length){cards.innerHTML='<div class="empty-state">진행 중인 세션이 없습니다.</div>';return;}
-  cards.innerHTML=entries.map(function([k,s]){
-    const status=s.status||'unknown';
-    const dot=status==='active'?'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ade80;margin-right:6px;"></span>':
-               status==='ended'?'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#888;margin-right:6px;"></span>':
-               '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#fbbf24;margin-right:6px;"></span>';
-    const started=s.startedAt?new Date(s.startedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'—';
-    return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;">'
-      +'<div style="flex:1;">'
-      +'<div style="font-size:14px;font-weight:500;margin-bottom:4px;">'+dot+(s.participantName||'이름 없음')+'</div>'
-      +'<div style="font-size:11px;color:var(--text-muted);">시작: '+started+' · '+status+'</div>'
-      +(s.protoUrl?'<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">'+s.protoUrl.slice(0,60)+'</div>':'')
-      +'</div>'
-      +'<div style="display:flex;gap:6px;">'      +'<button onclick="openSessionDetail(\''+k+'\')" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;">모니터링</button>'      +'<button onclick="deleteSession(\''+k+'\')" style="background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:6px 10px;font-size:12px;font-weight:500;cursor:pointer;">삭제</button>'      +'</div>'      +'</div>';
-  }).join('');
-};
-
-window.deleteSession=function(key){
-  const s=allSessions[key];
-  const name=(s&&s.participantName)||key;
-  if(!confirm('"'+name+'" 세션을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.'))return;
-  dbRef('sessions/'+key).remove().then(function(){
-    if(currentSessionKey===key) window.closeSessionDetail();
-  });
-};
-
-window.openSessionDetail=function(key){
-  currentSessionKey=key;
-  const s=allSessions[key];if(!s)return;
-  document.getElementById('session-cards').closest('#sessions-active').style.display='none';
-  const detail=document.getElementById('session-detail');
-  detail.style.display='block';
-  document.getElementById('session-detail-name').textContent=s.participantName||'이름 없음';
-  document.getElementById('session-detail-status').textContent=s.status||'';
-
-  // 프로토타입 iframe 로드
-  if(s.protoUrl){
-    document.getElementById('proto-monitor-frame').src=s.protoUrl;
-  }
-
-  // 로그 피드 초기화
-  document.getElementById('log-feed').innerHTML='';
-  document.getElementById('s-clicks').textContent='0';
-  document.getElementById('s-hesitations').textContent='0';
-  document.getElementById('s-task').textContent='—';
-
-  // 경과 시간 타이머
-  sessionStartTime=s.startedAt?new Date(s.startedAt):new Date();
-  clearInterval(elapsedTimer);
-  elapsedTimer=setInterval(function(){
-    const sec=Math.floor((Date.now()-sessionStartTime)/1000);
-    const m=String(Math.floor(sec/60)).padStart(2,'0');
-    const ss=String(sec%60).padStart(2,'0');
-    const el=document.getElementById('s-elapsed');
-    if(el)el.textContent=m+':'+ss;
-  },1000);
-
-  // 로그 실시간 구독
-  if(currentSessionLogsRef) currentSessionLogsRef.off();
-  currentSessionLogsRef=dbRef('sessions/'+key+'/logs');
-  let clicks=0,hesitations=0;
-  currentSessionLogsRef.on('child_added',function(snap){
-    const log=snap.val();if(!log)return;
-    addLogFeedEntry(log);
-    if(log.type==='click'){clicks++;const el=document.getElementById('s-clicks');if(el)el.textContent=clicks;}
-    if(log.type==='hesitation'){hesitations++;const el=document.getElementById('s-hesitations');if(el)el.textContent=hesitations;}
-    if(log.type==='mouse_move'||log.type==='click'){
-      updateCursorOverlay(log.x,log.y,log.type==='hesitation');
-    }
-    if(log.type==='hesitation') showHesitationRing(log.x,log.y);
-    if(log.type==='task_change'){
-      const el=document.getElementById('s-task');if(el)el.textContent=log.task||'—';
-    }
-  });
-};
-
-function addLogFeedEntry(log){
-  const feed=document.getElementById('log-feed');if(!feed)return;
-  const colors={
-    click:'#7C6CFC',hesitation:'#fbbf24',mouse_move:'#555',
-    change:'#4ade80',input_start:'#60a5fa',input_done:'#60a5fa',
-    task_change:'#f87171',page_change:'#f87171',session_start:'#4ade80',tracking_start:'#4ade80'
-  };
-  const labels={
-    click:'클릭',hesitation:'머뭇거림',mouse_move:'이동',
-    change:'선택',input_start:'입력 시작',input_done:'입력 완료',
-    task_change:'Task 전환',page_change:'페이지 변경',session_start:'세션 시작',tracking_start:'추적 시작'
-  };
-  // mouse_move는 과도하면 숨김
-  if(log.type==='mouse_move')return;
-  const color=colors[log.type]||'#888';
-  const label=labels[log.type]||log.type;
-  const time=log.ts?new Date(log.ts).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
-  const detail=log.text?(' "'+log.text+'"'):log.task?(' '+log.task):log.id?(' #'+log.id):'';
-  const entry=document.createElement('div');
-  entry.style.cssText='display:flex;gap:6px;align-items:baseline;border-bottom:1px solid var(--border);padding-bottom:4px;';
-  entry.innerHTML='<span style="color:'+color+';font-weight:500;white-space:nowrap;">'+label+'</span>'
-    +'<span style="color:#555;font-size:10px;white-space:nowrap;">'+time+'</span>'
-    +'<span style="color:var(--text-muted);font-size:10px;word-break:break-all;">'+escapeHtml(detail)+'</span>';
-  feed.appendChild(entry);
-  feed.scrollTop=feed.scrollHeight;
-}
-
-function updateCursorOverlay(x,y){
-  const frame=document.getElementById('proto-monitor-frame');
-  const cursor=document.getElementById('monitor-cursor');
-  if(!frame||!cursor)return;
-  const rect=frame.getBoundingClientRect();
-  // iframe 내부 좌표를 실제 크기 비율로 변환
-  const scaleX=rect.width/(frame.contentDocument?.documentElement?.clientWidth||rect.width);
-  const scaleY=rect.height/(frame.contentDocument?.documentElement?.clientHeight||rect.height);
-  cursor.style.display='block';
-  cursor.style.left=Math.round(x*scaleX)+'px';
-  cursor.style.top=Math.round(y*scaleY)+'px';
-}
-
-function showHesitationRing(x,y){
-  const frame=document.getElementById('proto-monitor-frame');
-  const ring=document.getElementById('monitor-hesitation');
-  if(!frame||!ring)return;
-  const rect=frame.getBoundingClientRect();
-  const scaleX=rect.width/(frame.contentDocument?.documentElement?.clientWidth||rect.width);
-  const scaleY=rect.height/(frame.contentDocument?.documentElement?.clientHeight||rect.height);
-  ring.style.left=Math.round(x*scaleX)+'px';
-  ring.style.top=Math.round(y*scaleY)+'px';
-  ring.style.opacity='1';
-  setTimeout(()=>ring.style.opacity='0',1500);
-}
-
-function updateSessionStats(){
-  const s=allSessions[currentSessionKey];if(!s)return;
-  const el=document.getElementById('session-detail-status');
-  if(el)el.textContent=s.status||'';
-}
-
-window.closeSessionDetail=function(){
-  if(currentSessionLogsRef){currentSessionLogsRef.off();currentSessionLogsRef=null;}
-  clearInterval(elapsedTimer);
-  currentSessionKey=null;
-  document.getElementById('session-detail').style.display='none';
-  document.getElementById('sessions-active').style.display='block';
-  document.getElementById('proto-monitor-frame').src='about:blank';
-};
-
 </script>
 </body>
 </html>
