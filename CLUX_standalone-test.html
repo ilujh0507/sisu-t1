@@ -626,8 +626,8 @@ function Task1({ condition, state, setState, goToTab, content }) {
     try {
       // AI auto-extraction on selected codes (or all if none selected, e.g., proactive trigger)
       const codesToAnalyze = selected.size > 0
-        ? RAW_CODES.filter(c => selected.has(c.id))
-        : RAW_CODES;
+        ? _rawCodes.filter(c => selected.has(c.id))
+        : _rawCodes;
       const codeList = codesToAnalyze.map(c => `${c.id} [${c.tag}] ${c.q}`).join('\n');
       const sourceLabel = selected.size > 0
         ? `사용자가 선택한 코드 ${codesToAnalyze.length}건`
@@ -846,14 +846,27 @@ function Task1({ condition, state, setState, goToTab, content }) {
                 <Icon.Hand s={14} c="var(--t1)"/>
                 <span className="text-[12.5px] font-medium ink-1">사용자 주도형 · 명시적 호출</span>
               </div>
-                  <p className="text-[11.5px] ink-2 mt-2 leading-relaxed">
+              <p className="text-[11.5px] ink-2 mt-2 leading-relaxed">
                 코드 2개 이상을 선택한 뒤 <span className="kbd">인사이트 추출</span>을 직접 눌렀을 때만 에이전트가 분석을 실행합니다.
               </p>
-              <div className="mt-3 p-3 rounded-lg dashed text-center text-[11px] mono ink-3">
-                AI 대기 중 ·<br/>사용자 입력 기다리는 중
-              </div>
+              {selected.size >= 2 ? (
+                <div className="mt-3 p-3 rounded-lg t1-bg border t1-bd">
+                  <div className="flex items-center gap-1.5">
+                    <span className="dot t1-fill pulse"/>
+                    <span className="text-[11px] mono t1-c">선택 완료 · 분석 준비됨</span>
+                  </div>
+                  <div className="text-[12px] ink-1 mt-2 leading-snug">
+                    {selected.size}개 코드를 선택했어요. "인사이트 추출" 버튼을 눌러 분석을 시작하세요.
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 p-3 rounded-lg dashed text-center text-[11px] mono ink-3">
+                  AI 대기 중 ·<br/>사용자 입력 기다리는 중
+                </div>
+              )}
               <div className="mt-3 text-[11px] ink-3 flex items-center gap-1.5">
-                <span className="dot" style={{ background: 'var(--ink-3)' }} /> idle · 0 intervention
+                <span className="dot" style={{ background: selected.size >= 2 ? 'var(--t1)' : 'var(--ink-3)' }} />
+                {selected.size >= 2 ? `ready · ${selected.size} codes selected` : 'idle · 0 intervention'}
               </div>
             </div>
           ) : (
@@ -3376,6 +3389,7 @@ function App() {
     } else {
       setState((s) => ({ ...s, projectStarted: true, project: projectInfo }));
     }
+    window.parent.postMessage({ type: 'CLUX_TASK_CHANGE', taskId: 'Task1', taskLabel: 'Task 1' }, '*');
     setActive(TAB_DEFS[0]);
   };
 
@@ -3668,6 +3682,25 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 
 <script>
 // postMessage for task changes is handled in the App component's handleSetActive and goToTab functions
+
+// Click event tracking
+document.addEventListener('click', function(e) {
+  window.parent.postMessage({ type: 'CLUX_EVENT', eventType: 'click', x: e.clientX, y: e.clientY }, '*');
+}, true);
+
+// Mouse hesitation tracking (2s+ stillness)
+(function() {
+  var _hesiTimer = null;
+  var _hesiX = 0, _hesiY = 0;
+  document.addEventListener('mousemove', function(e) {
+    clearTimeout(_hesiTimer);
+    _hesiX = e.clientX;
+    _hesiY = e.clientY;
+    _hesiTimer = setTimeout(function() {
+      window.parent.postMessage({ type: 'CLUX_EVENT', eventType: 'hesitation', x: _hesiX, y: _hesiY }, '*');
+    }, 2000);
+  }, false);
+})();
 </script>
 </body>
 </html>
