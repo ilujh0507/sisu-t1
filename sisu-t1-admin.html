@@ -742,15 +742,12 @@ onValue(dbRef('tasks'),snap=>{if(snap.val())curTasks=snap.val();renderTasks();re
 onValue(dbRef('dvars'),snap=>{if(snap.val())curDvars=snap.val();renderDvars();renderEditor();});
 onValue(dbRef('responses'),snap=>{
   const d=snap.val()||{};
-  activeResp=Object.entries(d).map(([k,v])=>({_key:k,...v}));
+  const all=Object.entries(d).map(([k,v])=>({_key:k,...v}));
+  activeResp=all.filter(r=>!r.trashed);
+  trashResp=all.filter(r=>r.trashed);
   document.getElementById('stat-total').textContent=activeResp.length||'—';
-  renderRespList();renderDashboard();
-});
-onValue(dbRef('trash'),snap=>{
-  const d=snap.val()||{};
-  trashResp=Object.entries(d).map(([k,v])=>({_key:k,...v}));
   document.getElementById('stat-trash').textContent=trashResp.length||'—';
-  renderTrash();
+  renderRespList();renderDashboard();renderTrash();
 });
 onValue(dbRef('live'),snap=>{
   liveSessions=snap.val()||{};
@@ -1458,21 +1455,16 @@ function renderTrash(){
   c.innerHTML=s.map((r,i)=>respCard(r,i,'trash')).join('');
 }
 window.toTrash=function(k){
-  const r=activeResp.find(x=>x._key===k);if(!r)return;
-  const d=Object.assign({},r);delete d._key;
-  d.trashedAt=new Date().toISOString();
-  set(dbRef('trash/'+k),d).then(function(){remove(dbRef('responses/'+k));});
+  update(dbRef('responses/'+k),{trashed:true,trashedAt:new Date().toISOString()});
 };
 window.fromTrash=function(k){
-  const r=trashResp.find(x=>x._key===k);if(!r)return;
-  const d=Object.assign({},r);delete d._key;
-  set(dbRef('responses/'+k),d).then(function(){remove(dbRef('trash/'+k));});
+  update(dbRef('responses/'+k),{trashed:null,trashedAt:null});
 };
-window.permDel=function(k){if(confirm('영구 삭제하면 복원이 불가합니다. 계속할까요?'))remove(dbRef('trash/'+k));};
+window.permDel=function(k){if(confirm('영구 삭제하면 복원이 불가합니다. 계속할까요?'))remove(dbRef('responses/'+k));};
 window.deleteAllTrash=function(){
   if(!trashResp.length){alert('휴지통이 비어 있습니다.');return;}
   if(!confirm('휴지통의 응답 '+trashResp.length+'건을 모두 영구 삭제합니다.\n삭제 후에는 복원이 불가합니다. 정말 삭제하시겠습니까?'))return;
-  trashResp.forEach(r=>remove(dbRef('trash/'+r._key)));
+  trashResp.forEach(r=>remove(dbRef('responses/'+r._key)));
 };
 
 /* ─── CSV EXPORT ─── */
