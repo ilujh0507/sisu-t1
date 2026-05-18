@@ -514,6 +514,9 @@ select.input-field{cursor:pointer;width:auto;}
       <div class="page" id="page-trash">
         <div class="page-header"><h1>휴지통</h1><p>이곳의 응답은 통계에서 제외됩니다.</p></div>
         <div class="trash-warn">⚠ 영구 삭제는 복원이 불가합니다.</div>
+        <div class="btn-row" style="margin-bottom:16px;">
+          <button class="btn btn-danger" onclick="deleteAllTrash()">🗑 전체 영구 삭제</button>
+        </div>
         <div id="trash-list"><div class="empty-state">휴지통이 비어 있습니다.</div></div>
       </div>
     </main>
@@ -748,8 +751,6 @@ onValue(dbRef('trash'),snap=>{
   trashResp=Object.entries(d).map(([k,v])=>({_key:k,...v}));
   document.getElementById('stat-trash').textContent=trashResp.length||'—';
   renderTrash();
-  const now=Date.now();
-  trashResp.forEach(r=>{if(r.submittedAt&&now-new Date(r.submittedAt).getTime()>3600000)remove(dbRef('trash/'+r._key));});
 });
 onValue(dbRef('live'),snap=>{
   liveSessions=snap.val()||{};
@@ -1459,6 +1460,7 @@ function renderTrash(){
 window.toTrash=function(k){
   const r=activeResp.find(x=>x._key===k);if(!r)return;
   const d=Object.assign({},r);delete d._key;
+  d.trashedAt=new Date().toISOString();
   set(dbRef('trash/'+k),d).then(function(){remove(dbRef('responses/'+k));});
 };
 window.fromTrash=function(k){
@@ -1467,6 +1469,11 @@ window.fromTrash=function(k){
   set(dbRef('responses/'+k),d).then(function(){remove(dbRef('trash/'+k));});
 };
 window.permDel=function(k){if(confirm('영구 삭제하면 복원이 불가합니다. 계속할까요?'))remove(dbRef('trash/'+k));};
+window.deleteAllTrash=function(){
+  if(!trashResp.length){alert('휴지통이 비어 있습니다.');return;}
+  if(!confirm('휴지통의 응답 '+trashResp.length+'건을 모두 영구 삭제합니다.\n삭제 후에는 복원이 불가합니다. 정말 삭제하시겠습니까?'))return;
+  trashResp.forEach(r=>remove(dbRef('trash/'+r._key)));
+};
 
 /* ─── CSV EXPORT ─── */
 window.exportCsv=function(){
