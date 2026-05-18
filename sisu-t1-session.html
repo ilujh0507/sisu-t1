@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 /* ── 커스텀 커서 — CSS 방식, 딜레이 없음 ── */
-*,*::before,*::after{cursor:url('cursor.svg') 0 0,auto !important;}
+*,*::before,*::after{cursor:url("https://ilujh0507.github.io/sisu-t1/cursor.svg") 0 0,auto !important;}
 :root{
   --bg:#0f0f13;--surface:#1a1a22;--border:#2e2e3e;
   --accent:#7C6CFC;--accent-soft:rgba(124,108,252,.12);
@@ -35,10 +35,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #log-count{font-size:11px;color:var(--text-muted);}
 #url-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
 #url-bar label{font-size:12px;color:var(--text-muted);white-space:nowrap;}
-#proto-url{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;outline:none;transition:border-color .15s;}
-#proto-url:focus{border-color:var(--accent);}
-#load-btn{background:var(--surface);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:6px 12px;font-size:12px;white-space:nowrap;transition:background .15s;}
-#load-btn:hover{background:var(--accent-soft);}
+#proto-fixed-url{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #split-wrap{display:flex;height:calc(100vh - 88px);}
 #proto-pane{flex:0 0 65%;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative;}
 #survey-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;}
@@ -71,9 +68,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 </div>
 
 <div id="url-bar">
-  <label for="proto-url">프로토타입 URL</label>
-  <input id="proto-url" type="text" placeholder="https://ilujh0507.github.io/sisu-t1/prototype.html">
-  <button id="load-btn">불러오기</button>
+  <label>프로토타입 URL</label>
+  <div id="proto-fixed-url">https://ilujh0507.github.io/sisu-t1/CLUX_standalone.html</div>
 </div>
 
 <div id="split-wrap">
@@ -84,8 +80,8 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
     </div>
     <div id="proto-placeholder">
       <div class="icon">⬡</div>
-      <div>위에서 프로토타입 URL을 입력하고<br>불러오기를 누르세요</div>
-      <div style="font-size:12px;opacity:.6;">같은 GitHub 저장소 파일이어야 로그 추적이 가능합니다</div>
+      <div>프로토타입을 자동으로 불러오는 중입니다</div>
+      <div style="font-size:12px;opacity:.6;">고정 경로: CLUX_standalone.html</div>
     </div>
     <iframe id="proto-frame" style="display:none;" allow="same-origin"></iframe>
     <div id="hesitation-ring"></div>
@@ -107,10 +103,12 @@ firebase.initializeApp(FB);
 const db=firebase.database();
 function dbRef(p){return db.ref(p);}
 
+const DEFAULT_PROTO_URL='https://ilujh0507.github.io/sisu-t1/CLUX_standalone.html';
+
 let SESSION_ID=null,sessionRef=null,logCount=0,sessionActive=false;
 let participantName='',protoLoaded=false,lastTaskName='—';
 let hesitationTimer=null,lastMouseLog=0;
-const HESITATION_MS=2000,MOUSE_THROTTLE_MS=500;
+const HESITATION_MS=2000,MOUSE_THROTTLE_MS=300;
 
 function toast(msg,ms=2500){
   const el=document.getElementById('toast');
@@ -124,6 +122,11 @@ function saveLog(type,data){
   document.getElementById('log-count').textContent='로그 '+(++logCount)+'건';
 }
 
+function saveTempLog(type,data){
+  if(!sessionRef||!sessionActive)return;
+  sessionRef.child('temp').push(Object.assign({type,ts:new Date().toISOString(),task:lastTaskName},data));
+}
+
 /* ── 세션 시작 ── */
 document.getElementById('participant-name').addEventListener('input',function(){
   document.getElementById('start-btn').disabled=!this.value.trim();
@@ -133,7 +136,7 @@ document.getElementById('start-btn').addEventListener('click',function(){
   if(!participantName)return;
   SESSION_ID='sess_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,5);
   sessionRef=dbRef('sessions/'+SESSION_ID);
-  sessionRef.set({participantName,startedAt:new Date().toISOString(),status:'active',protoUrl:document.getElementById('proto-url').value.trim()});
+  sessionRef.set({participantName,startedAt:new Date().toISOString(),status:'active',protoUrl:DEFAULT_PROTO_URL});
   sessionRef.onDisconnect().update({status:'disconnected',endedAt:new Date().toISOString()});
   sessionActive=true;
   document.getElementById('status-dot').classList.add('active');
@@ -147,12 +150,9 @@ document.getElementById('start-btn').addEventListener('click',function(){
   toast('세션 시작: '+participantName);
 });
 
-/* ── 프로토타입 불러오기 ── */
-document.getElementById('load-btn').addEventListener('click',loadProto);
-document.getElementById('proto-url').addEventListener('keydown',function(e){if(e.key==='Enter')loadProto();});
+/* ── 프로토타입 자동 불러오기 ── */
 function loadProto(){
-  const url=document.getElementById('proto-url').value.trim();
-  if(!url){toast('URL을 입력해주세요.');return;}
+  const url=DEFAULT_PROTO_URL;
   const frame=document.getElementById('proto-frame');
   frame.src=url;frame.style.display='block';
   document.getElementById('proto-placeholder').style.display='none';
@@ -163,13 +163,15 @@ function loadProto(){
     try{
       const fdoc=frame.contentDocument||frame.contentWindow.document;
       const s=fdoc.createElement('style');
-      s.textContent='*,*::before,*::after{cursor:url("cursor.svg") 0 0,auto !important;}';
+      s.textContent='*,*::before,*::after{cursor:url("https://ilujh0507.github.io/sisu-t1/cursor.svg") 0 0,auto !important;}';
       fdoc.head.appendChild(s);
     }catch(e){}
     if(sessionActive)initProtoTracking();
     toast('프로토타입 로드 완료');
   },{once:true});
 }
+
+loadProto();
 
 /* ── 이벤트 추적 ── */
 function initProtoTracking(){
@@ -187,12 +189,14 @@ function initProtoTracking(){
       clearTimeout(hesitationTimer);ring.style.opacity='0';
       hesitationTimer=setTimeout(function(){
         saveLog('hesitation',{x,y,durationMs:HESITATION_MS});
-        ring.style.left=(rect.left+x)+'px';ring.style.top=(rect.top+y)+'px';
+        const scaleX=rect.width/frame.contentWindow.innerWidth||1;
+        const scaleY=rect.height/frame.contentWindow.innerHeight||1;
+        ring.style.left=(rect.left+x*scaleX)+'px';ring.style.top=(rect.top+y*scaleY)+'px';
         ring.style.opacity='1';
         setTimeout(()=>ring.style.opacity='0',1500);
       },HESITATION_MS);
       // throttle 500ms
-      if(now-lastMouseLog>MOUSE_THROTTLE_MS){lastMouseLog=now;saveLog('mouse_move',{x,y});}
+      if(now-lastMouseLog>MOUSE_THROTTLE_MS){lastMouseLog=now;saveTempLog('mouse_move',{x,y});}
     });
 
     fdoc.addEventListener('click',function(e){
@@ -242,12 +246,28 @@ function initProtoTracking(){
 
 window.addEventListener('message',function(e){
   if(!e.data||typeof e.data!=='object')return;
+  // 기존 방식
   if(e.data.type==='task_change')lastTaskName=e.data.task;
   if(e.data.type==='survey_submitted')toast('설문 제출 완료');
+  // CLUX postMessage 연동
+  if(e.data.type==='CLUX_TASK_CHANGE'){
+    const tid=e.data.taskId||e.data.task||'';
+    const label=e.data.taskLabel||tid;
+    const t='Task '+String(tid).replace(/[^0-9]/g,'');
+    if(t!==lastTaskName&&t!=='Task '){
+      lastTaskName=t;
+      document.getElementById('task-indicator').textContent=label||t;
+      saveLog('task_change',{task:t,taskId:tid,label:label});
+      toast('📍 '+(label||t));
+    }
+  }
 });
 
 window.addEventListener('beforeunload',function(){
-  if(sessionRef&&sessionActive)sessionRef.update({status:'ended',endedAt:new Date().toISOString()});
+  if(sessionRef&&sessionActive){
+    sessionRef.update({status:'ended',endedAt:new Date().toISOString()});
+    sessionRef.child('temp').remove(); // 휘발성 로그 삭제
+  }
 });
 </script>
 </body>
