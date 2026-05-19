@@ -832,7 +832,8 @@ function renderLive(){
     const isDone=s.status==='submitted'||phase==='done';
     const isSurvey=phase==='survey';
     let badgeClass=isDone?'live-done':'live-active';
-    let badgeText=isDone?'✓ 완료':isSurvey?'📝 설문 중':'🔬 탐험 중';
+    const currentTask=s.currentTask||'';
+    let badgeText=isDone?'✓ 완료':isSurvey?'📝 설문 중':currentTask?'🔬 탐험 중 · '+currentTask:'🔬 탐험 중';
     const t=s.startedAt?new Date(s.startedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
     const liveName=escapeHtml((s.respondentName||s.participantName||s.name||'').trim()||'이름 입력 전');
     // Task 진행 상황 행 생성
@@ -856,7 +857,7 @@ function renderLive(){
       const label=getQuestionLabelByKey(k,v);
       return'<div class="live-row" style="align-items:flex-start;"><span class="live-key" style="min-width:200px;max-width:340px;white-space:normal;line-height:1.5;word-break:keep-all;">'+escapeHtml(label)+'</span>'+val+'<span class="live-chts">'+ts+'</span></div>';
     }).filter(Boolean).join('');
-    const allRows=(taskRows+rows)||(isSurvey||isDone?'<div style="font-size:13px;color:var(--text-muted);">아직 응답 없음</div>':'<div style="font-size:13px;color:var(--text-muted);">🔬 인터뷰 코드 분석 중 · 아직 설문 미진입</div>');
+    const allRows=(taskRows+rows)||(isSurvey||isDone?'<div style="font-size:13px;color:var(--text-muted);">아직 응답 없음</div>':'<div style="font-size:13px;color:var(--text-muted);">'+(currentTask?'🔬 '+currentTask+' 진행 중':'🔬 프로토타입 탐험 중')+'</div>');
     return'<div class="live-card"><div class="live-header"><span class="live-id">'+liveName+'</span><span class="live-badge '+badgeClass+'">'+badgeText+'</span><span class="live-ts-main">시작 '+t+'</span><button onclick="deleteLiveSession(&quot;'+id+'&quot;)" style="margin-left:auto;background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">✕ 제거</button></div>'+allRows+'</div>';
   }).join('');
 }

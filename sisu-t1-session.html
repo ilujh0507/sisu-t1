@@ -26,7 +26,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #status-label{font-size:12px;color:var(--text-muted);}
 .spacer{flex:1;}
 #task-indicator{font-size:11px;color:var(--text-muted);background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 10px;white-space:nowrap;}
-#log-count{font-size:11px;color:var(--text-muted);}
+#log-count{font-size:11px;color:var(--text-muted);display:none;}
 #url-bar{display:none;}
 #split-wrap{display:flex;height:calc(100vh - 48px);}
 #proto-pane{flex:1;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative;}
@@ -50,7 +50,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
   <div id="status-label">대기 중</div>
   <div class="spacer"></div>
   <div id="task-indicator">Task —</div>
-  <div id="log-count">로그 0건</div>
 </div>
 
 <div id="url-bar">
@@ -70,7 +69,6 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
       <div>프로토타입 로딩 중...</div>
     </div>
     <iframe id="proto-frame" style="display:none;" allow="same-origin"></iframe>
-    <div id="hesitation-ring"></div>
   </div>
   <div id="survey-pane">
     <div class="pane-label">
@@ -110,7 +108,6 @@ function toast(msg,ms=2500){
 function saveLog(type,data){
   if(!sessionRef||!sessionActive)return;
   sessionRef.child('logs').push(Object.assign({type,ts:new Date().toISOString(),task:lastTaskName},data));
-  document.getElementById('log-count').textContent='로그 '+(++logCount)+'건';
 }
 
 function saveTempLog(type,data){
@@ -182,23 +179,43 @@ function initProtoTracking(){
     const ring=document.getElementById('hesitation-ring');
     const rect=frame.getBoundingClientRect();
 
-    fdoc.addEventListener('mousemove',function(e){
-      const now=Date.now();
-      const x=Math.round(e.clientX),y=Math.round(e.clientY);
-      clearTimeout(hesitationTimer);ring.style.opacity='0';
-      hesitationTimer=setTimeout(function(){
-        saveLog('hesitation',{x,y,durationMs:HESITATION_MS});
-        ring.style.left=(rect.left+x)+'px';ring.style.top=(rect.top+y)+'px';
-        ring.style.opacity='1';
-        setTimeout(()=>ring.style.opacity='0',1500);
-      },HESITATION_MS);
-      if(now-lastMouseLog>MOUSE_THROTTLE_MS){lastMouseLog=now;saveLog('mouse_move',{x,y});}
-    });
-
     fdoc.addEventListener('click',function(e){
       const el=e.target;
       saveLog('click',{tag:el.tagName.toLowerCase(),id:el.id||'',text:(el.textContent||'').trim().slice(0,60),x:Math.round(e.clientX),y:Math.round(e.clientY)});
     });
+
+    // CLUX 상단 탭 활성화 감지로 Task 파악
+    setInterval(function(){
+      try{
+        const fdoc2=frame.contentDocument||frame.contentWindow.document;
+        // 활성화된 탭 버튼 찾기 (aria-selected, active class, data-active 등)
+        const activeTabs=fdoc2.querySelectorAll('[aria-selected="true"],[data-active="true"],.tab-active,.active-tab');
+        let detectedTask=null;
+        activeTabs.forEach(function(el){
+          const txt=(el.textContent||'').trim();
+          const m=txt.match(/T([1-4])|Task\s*([1-4])/i);
+          if(m)detectedTask='Task '+(m[1]||m[2]);
+        });
+        // aria-selected 없으면 텍스트+스타일로 추정
+        if(!detectedTask){
+          const allBtns=fdoc2.querySelectorAll('button,a,[role="tab"]');
+          allBtns.forEach(function(el){
+            const style=window.getComputedStyle?fdoc2.defaultView.getComputedStyle(el):null;
+            const isActive=style&&(style.fontWeight==='700'||style.fontWeight==='bold'||parseFloat(style.opacity)===1);
+            const txt=(el.textContent||'').trim();
+            const m=txt.match(/^T([1-4])\b/i);
+            if(m&&isActive)detectedTask='Task '+m[1];
+          });
+        }
+        if(detectedTask&&detectedTask!==lastTaskName){
+          lastTaskName=detectedTask;
+          document.getElementById('task-indicator').textContent=detectedTask;
+          saveLog('task_change',{task:detectedTask});
+          dbRef('live/'+(SESSION_ID||'')+'/taskProgress').update&&
+            SESSION_ID&&dbRef('live/'+SESSION_ID).update({currentTask:detectedTask});
+        }
+      }catch(err){}
+    },800);
 
     fdoc.addEventListener('change',function(e){
       const el=e.target;
@@ -225,7 +242,6 @@ function initProtoTracking(){
     },500);
 
     saveLog('tracking_start',{});
-    toast('로그 추적 시작');
   }catch(e){
     toast('⚠ 로그 추적 불가 — 다른 도메인입니다',3000);
   }
