@@ -24,8 +24,7 @@
 </script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-/* ── 커스텀 커서 ── */
-*,*::before,*::after{cursor:url('https://ilujh0507.github.io/sisu-t1/cursor.svg') 0 0,auto !important;}
+
 :root{
   --bg:#0f0f13;--surface:#1a1a22;--border:#2e2e3e;
   --accent:#7C6CFC;--accent-soft:rgba(124,108,252,.12);
@@ -191,12 +190,7 @@ function loadProto(){
   document.getElementById('proto-url-label').textContent=url;
   protoLoaded=true;
   frame.addEventListener('load',function(){
-    try{
-      const fdoc=frame.contentDocument||frame.contentWindow.document;
-      const s=fdoc.createElement('style');
-      s.textContent="*,*::before,*::after{cursor:url('https://ilujh0507.github.io/sisu-t1/cursor.svg') 0 0,auto !important;}";
-      fdoc.head.appendChild(s);
-    }catch(e){}
+
     if(sessionActive)initProtoTracking();
     try{var _th=localStorage.getItem('clux_theme')||'dark';frame.contentWindow.postMessage({type:'SET_THEME',theme:_th},'*');}catch(e){}
     toast('프로토타입 로드 완료');
