@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
@@ -3138,7 +3138,7 @@ function Task2({ condition, state, setState, goToTab }) {
 
   const lock = () => {
     if (!problem.trim()) return;
-    const _t2s = t2ActionRef.current[condition]; if (_t2s.phase === 'swapped') recordT2Action(condition, 'accept'); else if (_t2s.phase === 'ai_shown') recordT2Action(condition, 'reconsider');
+    const _t2s = t2ActionRef.current[condition]; if (_t2s.phase === 'swapped') recordT2Action(condition, 'accept'); else if (_t2s.phase === 'ai_shown') recordT2Action(condition, 'reconsider'); else recordT2Action(condition, 'refused');
     setState((s) => ({ ...s, t2: { ...s.t2, problem, problemLocked: true, hmw: problem, hmwLocked: true, savedFeedback: aiText, savedAltProblem: recProblem }, progress: Math.max(s.progress, 0.52) }));
     setShowHandoff(true);
   };
@@ -5732,6 +5732,7 @@ function Task4({ condition, state, setState }) {
                 progress: 1.0
               }));
               // 최종 선택 기록 — 완료 시점의 각 Task A/B 확정값 전송
+              sendT4Counts();
               if (typeof window.__sendDwell === 'function') window.__sendDwell();
               if (window.self !== window.top)
                 window.parent.postMessage({ type:'CLUX_FINAL_SELECTION', conditions: window.__appConditions || {}, t1B: window.__t1BLastAction || null }, '*');
@@ -6793,6 +6794,13 @@ function App() {
 
   // ── 체류 시간 추적 (T1_A / T1_B / ... / T4_B 각각 누적) ─────────────────
   const dwellRef = React.useRef({ acc:{T1_A:0,T1_B:0,T2_A:0,T2_B:0,T3_A:0,T3_B:0,T4_A:0,T4_B:0}, enterTime:null, curKey:null });
+  // 세션 새로 시작 시 누산기 리셋 — 새로고침 없이 연속 진행할 때 이전 참가자 데이터 혼입 방지
+  React.useEffect(() => {
+    if (!state.projectStarted) return;
+    const r = dwellRef.current;
+    r.acc = {T1_A:0, T1_B:0, T2_A:0, T2_B:0, T3_A:0, T3_B:0, T4_A:0, T4_B:0};
+    r.enterTime = null; r.curKey = null;
+  }, [state.projectStarted]);
   const sendDwell = React.useCallback(() => {
     const r = dwellRef.current;
     if (r.curKey != null && r.enterTime != null) { r.acc[r.curKey]=(r.acc[r.curKey]||0)+(Date.now()-r.enterTime); r.enterTime=Date.now(); }
@@ -6807,6 +6815,21 @@ function App() {
     r.curKey = key; r.enterTime = now; sendDwell();
   }, [active.id, conditions.T1, conditions.T2, conditions.T3, conditions.T4, state.projectStarted]); // eslint-disable-line
   React.useEffect(() => { window.addEventListener('beforeunload',sendDwell); return ()=>window.removeEventListener('beforeunload',sendDwell); }, [sendDwell]);
+  // 탭 숨김/복귀 시 체류 시간 일시정지 — 창 최소화나 탭 이탈 중 누적 방지
+  React.useEffect(() => {
+    const r = dwellRef.current;
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (r.curKey != null && r.enterTime != null) { r.acc[r.curKey]=(r.acc[r.curKey]||0)+(Date.now()-r.enterTime); r.enterTime=null; }
+        if (window.self !== window.top)
+          window.parent.postMessage({ type:'CLUX_DWELL', times:Object.fromEntries(Object.entries(r.acc).map(([k,v])=>[k,Math.round(v/1000)])) }, '*');
+      } else {
+        if (r.curKey != null) r.enterTime = Date.now();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
   // ──────────────────────────────────────────────────────────────────────────
 
   // Load state from localStorage on mount - check for existing participant data
