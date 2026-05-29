@@ -721,7 +721,7 @@ var e,t,r="function"==typeof Symbol?Symbol:{},a=r.iterator||"@@iterator",n=r.toS
     opacity: 0.8;
     pointer-events: none;
     box-shadow: 0 0 12px oklch(0.65 0.22 285 / 0.6);
-    z-index: 2;
+    z-index: 4;
   }
   /* 상단 글로우 */
   .ai-panel::after {
@@ -733,8 +733,8 @@ var e,t,r="function"==typeof Symbol?Symbol:{},a=r.iterator||"@@iterator",n=r.toS
     pointer-events: none;
     z-index: 0;
   }
-  /* exclude breathing overlay so its position:absolute / z-index:0 are preserved */
-  .ai-panel > *:not(.panel-breathe-overlay) { position: relative; z-index: 1; }
+  /* exclude breathing/dim overlay so their position:absolute are preserved */
+  .ai-panel > *:not(.panel-breathe-overlay):not(.panel-dim-overlay) { position: relative; z-index: 3; }
 
   /* AI가 작업할 차례임을 알리는 외곽 글로우 */
   @keyframes ai-attention {
@@ -805,10 +805,40 @@ var e,t,r="function"==typeof Symbol?Symbol:{},a=r.iterator||"@@iterator",n=r.toS
   }
 
   .ai-panel .panel-breathe-overlay {
-    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
     background: oklch(0.60 0.25 285 / 0.38);
     animation: panel-breathe 2.2s ease-in-out infinite;
   }
+
+  /* AGENT SPEAKING dim 효과 */
+  /* zero-height sticky wrapper: 스크롤해도 항상 viewport top에 고정 */
+  .workspace-overlay-anchor {
+    position: sticky; top: 0; height: 0;
+    pointer-events: none; overflow: visible;
+  }
+  /* workspace breathe gradient — anchor 기준 절대 위치, 100vh 높이 */
+  .workspace-overlay-anchor .content-breathe-overlay {
+    position: absolute; top: 0; right: 0;
+    width: 180px; height: 100vh;
+  }
+  /* 워크스페이스 black overlay */
+  .workspace-dim-overlay {
+    position: absolute; top: 0; left: 0; right: 0; height: 100vh;
+    z-index: 4; pointer-events: none;
+    background: black;
+    opacity: 0;
+    transition: opacity 0.75s ease;
+  }
+  .workspace-dim-overlay.active { opacity: 0.5; transition: opacity 4s ease; }
+
+  /* AI 패널 전체 black overlay — breathing(z:2) 아래, 배경 위 */
+  .panel-dim-overlay {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background: black;
+    opacity: 0;
+    transition: opacity 0.75s ease;
+  }
+  .panel-dim-overlay.active { opacity: 0.5; transition: opacity 4s ease; }
 
   /* AI 패널 내 텍스트 컬러 보정 */
   .ai-panel .ink-1 { color: oklch(0.97 0.02 285); }
@@ -2552,11 +2582,14 @@ function Task1({ condition, state, setState, goToTab }) {
   };
 
   // ── Refs for latest values (avoid stale closures in timers / cleanups) ───
-  const conditionRef     = React.useRef(condition);
-  const aiOpenedRef      = React.useRef(aiOpened);
-  const aiResultsRef     = React.useRef(aiResults);
-  const t1LastActionRef  = React.useRef(window.__t1BLastAction || null);
-  const t1AiFromPopupRef = React.useRef(false);
+  const conditionRef       = React.useRef(condition);
+  const aiOpenedRef        = React.useRef(aiOpened);
+  const aiResultsRef       = React.useRef(aiResults);
+  const t1LastActionRef    = React.useRef(window.__t1BLastAction || null);
+  const t1AiFromPopupRef   = React.useRef(false);
+  // 카운트다운이 한 번이라도 끝났는지(aiOpened=true가 된 적 있는지) 추적
+  // → [나중에] 이후 재시작 시 5초로 시작하기 위해 사용
+  const aiOpenedOnceRef    = React.useRef(false);
   // Keep refs in sync every render (synchronous — always up-to-date)
   conditionRef.current  = condition;
   aiOpenedRef.current   = aiOpened;
@@ -2595,21 +2628,36 @@ function Task1({ condition, state, setState, goToTab }) {
   // ─────────────────────────────────────────────────────────────────────────
 
   // ── Condition B: idle timer ───────────────────────────────────────────
-  // Checks aiResultsRef.current['B']: if B already has results, skip timer (issue 2 fix).
+  // Checks aiResultsRef.current['B']: if B already has results, skip timer.
+  // Only starts after upload animation completes (state.t1.uploaded === true).
+  // Uses Date.now() timestamps → immune to browser setInterval throttling.
+  const startIdleTimer = React.useCallback((initialSecs) => {
+    clearInterval(idleTimerRef.current);
+    const deadline = Date.now() + initialSecs * 1000;
+    setFrictionCountdown(initialSecs);
+    idleTimerRef.current = setInterval(() => {
+      const remaining = Math.ceil((deadline - Date.now()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(idleTimerRef.current);
+        setAiOpened(true);
+        aiOpenedOnceRef.current = true;
+        setFrictionCountdown(0);
+      } else {
+        setFrictionCountdown(remaining);
+      }
+    }, 200); // 200ms 폴링 → 실제 경과 시간 기준이므로 throttle 영향 없음
+  }, []); // eslint-disable-line
+
   React.useEffect(() => {
     clearInterval(idleTimerRef.current);
     const bHasResult = !!aiResultsRef.current['B'];
-    if (condition === 'B' && !aiOpened && !bHasResult) {
-      setFrictionCountdown(6);
-      idleTimerRef.current = setInterval(() => {
-        setFrictionCountdown(s => {
-          if (s <= 1) { clearInterval(idleTimerRef.current); setAiOpened(true); return 0; }
-          return s - 1;
-        });
-      }, 1000);
+    if (condition === 'B' && !aiOpened && !bHasResult && state.t1.uploaded) {
+      // 첫 진입: 6초 / [나중에] 이후 재진입: 5초
+      const initialSecs = aiOpenedOnceRef.current ? 5 : 6;
+      startIdleTimer(initialSecs);
     }
     return () => clearInterval(idleTimerRef.current);
-  }, [condition, aiOpened]);
+  }, [condition, aiOpened, state.t1.uploaded]); // eslint-disable-line
 
   // Reset non-timer UI state when condition changes.
   // If returning to B where agent already ran, restore aiOpened=true so countdown
@@ -2622,20 +2670,15 @@ function Task1({ condition, state, setState, goToTab }) {
     setAiError(null);
     setAiLoading(false);
     t1AiFromPopupRef.current = false;
+    aiOpenedOnceRef.current = false; // 조건 바뀌면 "첫 진입" 상태로 리셋
   }, [condition]);
 
   // resetIdleTimer — called on click/scroll inside interview list
+  // Uses Date.now() based timer for accuracy
   const resetIdleTimer = React.useCallback(() => {
     if (conditionRef.current !== 'B' || aiOpenedRef.current) return;
-    clearInterval(idleTimerRef.current);
-    setFrictionCountdown(5);
-    idleTimerRef.current = setInterval(() => {
-      setFrictionCountdown(s => {
-        if (s <= 1) { clearInterval(idleTimerRef.current); setAiOpened(true); return 0; }
-        return s - 1;
-      });
-    }, 1000);
-  }, []);
+    startIdleTimer(5);
+  }, [startIdleTimer]);
   // ─────────────────────────────────────────────────────────────────────────
 
   const toggle = (id) => {
@@ -2790,8 +2833,12 @@ function Task1({ condition, state, setState, goToTab }) {
   return (
     <div className="flex h-full">
       {/* main canvas */}
-      <div className="flex-1 overflow-y-auto" style={{ position: 'relative' }}>
-        {condition === 'B' && aiOpened && !showPopup && !aiResult && <div className="content-breathe-overlay" />}
+      <div className="flex-1 overflow-y-auto">
+        {/* zero-height sticky anchor: 스크롤해도 overlay가 항상 visible 영역 전체를 덮음 */}
+        <div className="workspace-overlay-anchor" style={{ zIndex: 5 }}>
+          {condition === 'B' && aiOpened && !showPopup && !aiResult && <div className="content-breathe-overlay" />}
+          <div className={`workspace-dim-overlay${condition === 'B' && aiOpened && !showPopup && !aiResult ? ' active' : ''}`} />
+        </div>
         <div className="px-8 pt-7 pb-10 max-w-[920px]" key={`t1-${condition}`}>
           <div className="flex items-center gap-2 ink-3 text-[11px] mono mb-3 task-stage task-stage-1">
             <span>WORKSPACE</span><Icon.Arrow s={11} c="var(--ink-3)" sw={1.4} /><span className="t1-c">T1 · RESEARCH INTERPRETATION</span>
@@ -2921,8 +2968,9 @@ function Task1({ condition, state, setState, goToTab }) {
       </div>
 
       {/* right rail: AI behavior */}
-      <div className={`ai-panel overflow-y-auto${condition === 'B' && !aiOpened || aiLoading ? ' attention' : ''}`} key={`t1-rail-${condition}`}>
+      <div className={`ai-panel overflow-y-auto${condition === 'B' && (!aiOpened || aiLoading) ? ' attention' : ''}`} key={`t1-rail-${condition}`}>
         {condition === 'B' && aiOpened && !showPopup && !aiResult && <div className="panel-breathe-overlay" />}
+        <div className={`panel-dim-overlay${condition === 'B' && aiOpened && !showPopup && !aiResult ? ' active' : ''}`} />
         <div className="px-5 pt-4 pb-2.5 sticky top-0 z-10 task-handoff">
           <div className="flex items-center gap-2">
             <span className="ai-live-dot" />
@@ -3033,7 +3081,7 @@ function Task1({ condition, state, setState, goToTab }) {
             </div>
           }
 
-          <div className="card p-4">
+          <div className="card p-4" style={{ opacity: condition === 'B' && aiOpened && !showPopup && !aiResult ? 0.3 : 1, transition: condition === 'B' && aiOpened && !showPopup && !aiResult ? 'opacity 4s ease' : 'opacity 0.75s ease' }}>
             <div className="text-[10.5px] mono uppercase tracking-wider ink-3 mb-2">Session log</div>
             <div className="space-y-1.5 text-[11px] mono ink-2">
               <div className="flex gap-2"><span className="ink-3">00:12</span><span>코드 100건 로드</span></div>
@@ -3153,6 +3201,7 @@ function Task1({ condition, state, setState, goToTab }) {
           </div>
         </div>
       }
+      </div>
     </div>);
 
 }
@@ -6891,6 +6940,43 @@ function App() {
   // keep state.conditions in sync with conditions
   React.useEffect(() => {setState((s) => ({ ...s, conditions }));}, [conditions]);
 
+  // ── 시나리오 최초 배정 (랜덤 + 4번째 균형 조정) ─────────────────────────
+  // 각 Task 첫 진입 시 한 번만 실행. 이후 재방문은 마지막 조건 그대로 유지.
+  const visitedTasksRef = React.useRef([]); // [{id:'T1', assignedCond:'B'}, ...]
+
+  // 새 세션 시작 시 리셋
+  React.useEffect(() => {
+    if (!state.projectStarted) return;
+    visitedTasksRef.current = [];
+  }, [state.projectStarted]); // eslint-disable-line
+
+  // 탭 첫 진입 시 시나리오 배정
+  React.useEffect(() => {
+    if (!state.projectStarted) return;
+    const taskId = active.id;
+    const visited = visitedTasksRef.current;
+    if (visited.some(v => v.id === taskId)) return; // 이미 배정됨 — 재방문 무시
+
+    let cond;
+    if (visited.length < 3) {
+      // 첫 3개 Task: 랜덤
+      cond = Math.random() < 0.5 ? 'A' : 'B';
+    } else {
+      // 4번째 Task: 앞 3개에서 덜 나온 시나리오 배정
+      const aCount = visited.filter(v => v.assignedCond === 'A').length;
+      const bCount = visited.filter(v => v.assignedCond === 'B').length;
+      cond = aCount > bCount ? 'B' : 'A'; // 동수(불가능하지만 혹시) → A
+    }
+
+    visited.push({ id: taskId, assignedCond: cond });
+    setConditions(c => ({ ...c, [taskId]: cond }));
+
+    // Firebase 로그 기록
+    if (window.self !== window.top)
+      window.parent.postMessage({ type: 'CLUX_LOG', key: 'conditionAssigned_' + taskId, value: cond }, '*');
+  }, [active.id, state.projectStarted]); // eslint-disable-line
+  // ──────────────────────────────────────────────────────────────────────────
+
   // 전역에 state/conditions/sendDwell 노출 — 모달·Task4 등 하위 컴포넌트에서 접근용
   React.useEffect(() => {window.__appState = state;}, [state]);
   React.useEffect(() => {window.__appConditions = conditions;}, [conditions]);
@@ -6921,9 +7007,11 @@ function App() {
     if (!state.projectStarted) return;
     const key = active.id + '_' + conditions[active.id];
     const r = dwellRef.current; const now = Date.now();
+    // T1: 업로드 애니메이션 완료(uploaded=true) 전까지 체류 시간 미측정
+    if (active.id === 'T1' && !state.t1.uploaded) { r.curKey = key; r.enterTime = null; return; }
     if (r.curKey != null && r.curKey !== key && r.enterTime != null) r.acc[r.curKey]=(r.acc[r.curKey]||0)+(now-r.enterTime);
     r.curKey = key; r.enterTime = now; sendDwell();
-  }, [active.id, conditions.T1, conditions.T2, conditions.T3, conditions.T4, state.projectStarted]); // eslint-disable-line
+  }, [active.id, conditions.T1, conditions.T2, conditions.T3, conditions.T4, state.projectStarted, state.t1.uploaded]); // eslint-disable-line
   React.useEffect(() => { window.addEventListener('beforeunload',sendDwell); return ()=>window.removeEventListener('beforeunload',sendDwell); }, [sendDwell]);
   // 탭 숨김/복귀 시 체류 시간 일시정지 — 창 최소화나 탭 이탈 중 누적 방지
   React.useEffect(() => {
