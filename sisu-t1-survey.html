@@ -251,19 +251,27 @@ function renderForm(data,sessionScenario){
     if(sec.tag)html+='<div class="sec-tag">'+sec.tag+'</div>';
     if(sec.title)html+='<div class="sec-title">'+sec.title+'</div>';
 
-    // 세션 시나리오에 따라 likert 문항 순서 재정렬 (원본 qi 보존, 공통 문항 우선)
+    // 세션 시나리오에 따라 likert 문항 순서 재정렬 (원본 qi 보존)
+    // 시나리오 태그된 likert 문항들만 서로 위치 교환 — ab/text/choice 등 나머지는 원래 위치 유지
     var qsWithIdx=sec.questions.map(function(q,qi){return{q:q,origQi:qi};});
     if(sessionScenario){
-      var priority=function(item){
-        var q=item.q;
-        if(q.type!=='likert'||!q.scenario)return 0; // 공통/비리커트
-        if(q.scenario===sessionScenario)return 1;    // 배정 시나리오
-        return 2;                                     // 나머지 시나리오
-      };
-      // stable sort: 같은 priority끼리는 원래 순서 유지
-      qsWithIdx=qsWithIdx.map(function(item,i){return{item:item,i:i};})
-        .sort(function(a,b){return priority(a.item)-priority(b.item)||a.i-b.i;})
-        .map(function(x){return x.item;});
+      // 시나리오 태그 likert의 위치(인덱스)와 해당 항목을 분리
+      var scPositions=[];
+      var scItems=[];
+      qsWithIdx.forEach(function(item,pos){
+        if(item.q.type==='likert'&&item.q.scenario){
+          scPositions.push(pos);
+          scItems.push(item);
+        }
+      });
+      // 배정 시나리오 먼저, 나머지 뒤 (각 그룹 내 원래 순서 유지)
+      scItems.sort(function(a,b){
+        var pa=a.q.scenario===sessionScenario?0:1;
+        var pb=b.q.scenario===sessionScenario?0:1;
+        return pa-pb;
+      });
+      // 원래 위치에 정렬된 항목 재배치
+      scPositions.forEach(function(pos,i){qsWithIdx[pos]=scItems[i];});
     }
 
     qsWithIdx.forEach(function(entry,displayIdx){
