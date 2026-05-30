@@ -43,6 +43,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .text-input::placeholder{color:var(--text-muted);}
 .ab-choice{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .ab-opt{position:relative;}
+.yn-choice{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:0;}
+.yn-opt{position:relative;}
+.yn-opt input[type=radio]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;z-index:1;}
+.yn-opt label{display:flex;align-items:center;justify-content:center;padding:16px;border:2px solid var(--border);border-radius:14px;cursor:pointer;transition:all .18s;font-size:16px;font-weight:600;color:var(--text-muted);}
+.yn-opt input:checked+label{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+.yn-opt label:hover{border-color:var(--accent);}
+.yn-branch{margin-top:18px;padding:18px 20px;border-radius:12px;border:1px solid var(--border);background:var(--surface);display:none;}
+.yn-branch .question{margin-bottom:24px;}
+.yn-branch .question:last-child{margin-bottom:0;}
+.yn-branch-label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
 .ab-opt input[type=radio]{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;z-index:1;}
 .ab-opt label{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 16px;border:2px solid var(--border);border-radius:14px;cursor:pointer;transition:all .18s;text-align:center;gap:6px;min-height:100px;}
 .ab-opt label .ab-main{font-size:22px;font-weight:700;color:var(--text-muted);}
@@ -242,6 +252,38 @@ onValueOnce(dbRef('questions'),function(snap){
   }
 });
 
+// 서브문항 HTML 렌더러 (yesno 분기 내 개별 문항)
+function renderSubQHtml(sq,si,qi,branch,sqi){
+  var nameBase='subq_'+si+'_'+qi+'_'+branch+'_'+sqi;
+  var html='<div class="question">'
+    +'<div class="q-text"><span class="q-num">Q'+(sqi+1)+'</span>'+(sq.text||'')+'</div>';
+  if(sq.type==='likert'){
+    var rev=sq.reversed||false;
+    html+='<div class="likert"><div class="likert-labels"><span>'+(rev?'매우 그렇다':'전혀 그렇지 않다')+'</span><span>'+(rev?'전혀 그렇지 않다':'매우 그렇다')+'</span></div><div class="likert-opts">';
+    for(var i=1;i<=5;i++){
+      html+='<div class="l-opt"><input type="radio" name="'+nameBase+'" value="'+i+'" id="'+nameBase+'_'+i+'" data-subq="1" data-si="'+si+'" data-qi="'+qi+'" data-branch="'+branch+'" data-sqi="'+sqi+'" data-type="likert" data-qtext="'+encodeURIComponent(sq.text||'')+'"><label for="'+nameBase+'_'+i+'">'+i+'</label></div>';
+    }
+    html+='</div></div>';
+  } else if(sq.type==='ab'){
+    html+='<div class="ab-choice">'
+      +'<div class="ab-opt"><input type="radio" name="'+nameBase+'" value="A" id="'+nameBase+'_A" data-subq="1" data-si="'+si+'" data-qi="'+qi+'" data-branch="'+branch+'" data-sqi="'+sqi+'" data-type="ab" data-qtext="'+encodeURIComponent(sq.text||'')+'">'
+      +'<label for="'+nameBase+'_A"><span class="ab-main">A안</span></label></div>'
+      +'<div class="ab-opt"><input type="radio" name="'+nameBase+'" value="B" id="'+nameBase+'_B" data-subq="1" data-si="'+si+'" data-qi="'+qi+'" data-branch="'+branch+'" data-sqi="'+sqi+'" data-type="ab" data-qtext="'+encodeURIComponent(sq.text||'')+'">'
+      +'<label for="'+nameBase+'_B"><span class="ab-main">B안</span></label></div>'
+      +'</div>';
+  } else if(sq.type==='text'){
+    html+='<textarea class="text-input" name="'+nameBase+'" data-subq="1" data-si="'+si+'" data-qi="'+qi+'" data-branch="'+branch+'" data-sqi="'+sqi+'" data-type="text" data-qtext="'+encodeURIComponent(sq.text||'')+'" placeholder="자유롭게 작성해주세요."></textarea>';
+  } else if(sq.type==='yesno'){
+    var sqYL=sq.yesLabel||'예', sqNL=sq.noLabel||'아니오';
+    html+='<div class="yn-choice">'
+      +'<div class="yn-opt"><input type="radio" name="'+nameBase+'" value="yes" id="'+nameBase+'_yes" data-subq="1" data-si="'+si+'" data-qi="'+qi+'" data-branch="'+branch+'" data-sqi="'+sqi+'" data-type="yesno" data-qtext="'+encodeURIComponent(sq.text||'')+'">'
+      +'<label for="'+nameBase+'_yes">'+sqYL+'</label></div>'
+      +'<div class="yn-opt"><input type="radio" name="'+nameBase+'" value="no" id="'+nameBase+'_no" data-subq="1" data-si="'+si+'" data-qi="'+qi+'" data-branch="'+branch+'" data-sqi="'+sqi+'" data-type="yesno" data-qtext="'+encodeURIComponent(sq.text||'')+'">'
+      +'<label for="'+nameBase+'_no">'+sqNL+'</label></div>'
+      +'</div>';
+  }
+  return html+'</div>';
+}
 function renderForm(data,sessionScenario){
   formEl.classList.remove('hidden');
   var otherScenario=sessionScenario==='A'?'B':sessionScenario==='B'?'A':null;
@@ -321,6 +363,33 @@ function renderForm(data,sessionScenario){
         html+='</div>';
       } else if(q.type==='text'){
         html+='<textarea class="text-input" name="q_'+si+'_'+qi+'" data-si="'+si+'" data-qi="'+qi+'" data-type="text" data-qtext="'+encodeURIComponent(q.text)+'" placeholder="자유롭게 작성해주세요."></textarea>';
+      } else if(q.type==='yesno'||q.type==='conditional'){
+        var ynYesLbl=q.yesLabel||'예';
+        var ynNoLbl=q.noLabel||'아니오';
+        var ynDtype=q.type; // 'yesno' 또는 'conditional' — 이벤트 리스너 구분용
+        html+='<div class="yn-choice">'
+          +'<div class="yn-opt"><input type="radio" name="q_'+si+'_'+qi+'" value="yes" id="q_'+si+'_'+qi+'_yes" data-si="'+si+'" data-qi="'+qi+'" data-type="'+ynDtype+'" data-qtext="'+encodeURIComponent(q.text)+'">'
+          +'<label for="q_'+si+'_'+qi+'_yes">'+ynYesLbl+'</label></div>'
+          +'<div class="yn-opt"><input type="radio" name="q_'+si+'_'+qi+'" value="no" id="q_'+si+'_'+qi+'_no" data-si="'+si+'" data-qi="'+qi+'" data-type="'+ynDtype+'" data-qtext="'+encodeURIComponent(q.text)+'">'
+          +'<label for="q_'+si+'_'+qi+'_no">'+ynNoLbl+'</label></div>'
+          +'</div>';
+        // 조건부만 분기 문항 렌더링
+        if(q.type==='conditional'){
+          html+='<div class="yn-branch" id="yn_'+si+'_'+qi+'_yes">'
+            +'<div class="yn-branch-label">✓ '+ynYesLbl+'</div>';
+          (q.yesQuestions||[]).forEach(function(sq,sqi){
+            html+=renderSubQHtml(sq,si,qi,'yes',sqi);
+            if(sqi<(q.yesQuestions||[]).length-1)html+='<div class="divider"></div>';
+          });
+          html+='</div>';
+          html+='<div class="yn-branch" id="yn_'+si+'_'+qi+'_no">'
+            +'<div class="yn-branch-label">✗ '+ynNoLbl+'</div>';
+          (q.noQuestions||[]).forEach(function(sq,sqi){
+            html+=renderSubQHtml(sq,si,qi,'no',sqi);
+            if(sqi<(q.noQuestions||[]).length-1)html+='<div class="divider"></div>';
+          });
+          html+='</div>';
+        }
       }
       html+='</div>';
       if(displayIdx<qsWithIdx.length-1)html+='<div class="divider"></div>';
@@ -382,6 +451,36 @@ function renderForm(data,sessionScenario){
       },500);
     });
   });
+  // 예/아니오(단순) + 조건부: 실시간 스트리밍 / 조건부만 분기 패널 토글
+  formEl.querySelectorAll('input[type=radio][data-type="yesno"],input[type=radio][data-type="conditional"]').forEach(function(inp){
+    if(inp.dataset.subq)return; // 서브문항 내 yesno는 아래 서브문항 리스너에서 처리
+    inp.addEventListener('change',function(){
+      var si=inp.dataset.si,qi=inp.dataset.qi,val=inp.value;
+      if(inp.dataset.type==='conditional'){
+        var other=val==='yes'?'no':'yes';
+        var showEl=document.getElementById('yn_'+si+'_'+qi+'_'+val);
+        var hideEl=document.getElementById('yn_'+si+'_'+qi+'_'+other);
+        if(showEl)showEl.style.display='block';
+        if(hideEl){hideEl.style.display='none';hideEl.querySelectorAll('input[type=radio]').forEach(function(r){r.checked=false;});hideEl.querySelectorAll('textarea').forEach(function(t){t.value='';}); }
+      }
+      var k='s'+si+'_q'+qi;
+      update(dbRef('live/'+SESSION_ID+'/answers/'+k),{question:decodeURIComponent(inp.dataset.qtext),type:inp.dataset.type,answer:val,changedAt:new Date().toISOString()});
+    });
+  });
+  // 서브문항 실시간 스트리밍
+  formEl.querySelectorAll('input[type=radio][data-subq="1"]').forEach(function(inp){
+    inp.addEventListener('change',function(){
+      var k='s'+inp.dataset.si+'_q'+inp.dataset.qi+'_'+inp.dataset.branch+'_'+inp.dataset.sqi;
+      update(dbRef('live/'+SESSION_ID+'/answers/'+k),{question:decodeURIComponent(inp.dataset.qtext),type:inp.dataset.type,answer:inp.value,changedAt:new Date().toISOString()});
+    });
+  });
+  formEl.querySelectorAll('textarea[data-subq="1"]').forEach(function(ta){
+    ta.addEventListener('input',function(){
+      var k='s'+ta.dataset.si+'_q'+ta.dataset.qi+'_'+ta.dataset.branch+'_'+ta.dataset.sqi;
+      clearTimeout(debounce[k]);
+      debounce[k]=setTimeout(function(){update(dbRef('live/'+SESSION_ID+'/answers/'+k),{question:decodeURIComponent(ta.dataset.qtext),type:'text',answer:ta.value,changedAt:new Date().toISOString()});},500);
+    });
+  });
   document.getElementById('submit-btn').addEventListener('click',submitForm);
 }
 
@@ -414,6 +513,27 @@ function submitForm(){
           }
         }
         answers['s'+si+'_q'+qi]={question:q.text,type:'choice',answer:ans};
+      } else if(q.type==='yesno'||q.type==='conditional'){
+        var ynChecked=formEl.querySelector('input[name="'+name+'"]:checked');
+        if(!ynChecked&&q.required!==false)allOk=false;
+        var ynVal=ynChecked?ynChecked.value:null;
+        answers['s'+si+'_q'+qi]={question:q.text,type:q.type,answer:ynVal};
+        // 조건부만 서브문항 수집
+        if(q.type==='conditional'&&ynVal){
+          var subQs=ynVal==='yes'?(q.yesQuestions||[]):(q.noQuestions||[]);
+          subQs.forEach(function(sq,sqi){
+            var subName='subq_'+si+'_'+qi+'_'+ynVal+'_'+sqi;
+            var subKey='s'+si+'_q'+qi+'_'+ynVal+'_'+sqi;
+            if(sq.type==='text'){
+              var subEl=formEl.querySelector('textarea[name="'+subName+'"]');
+              answers[subKey]={question:sq.text,type:'text',answer:subEl?subEl.value.trim():''};
+            } else {
+              var subChecked=formEl.querySelector('input[name="'+subName+'"]:checked');
+              if(!subChecked&&sq.required!==false)allOk=false;
+              answers[subKey]={question:sq.text,type:sq.type,answer:subChecked?subChecked.value:null};
+            }
+          });
+        }
       } else {
         var checked2=formEl.querySelector('input[name="'+name+'"]:checked');
         if(!checked2&&q.required!==false)allOk=false;

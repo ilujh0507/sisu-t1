@@ -66,6 +66,15 @@ select.input-field{cursor:pointer;width:auto;}
 .type-likert{background:var(--accent-soft);color:var(--accent);}
 .type-ab{background:rgba(74,222,128,.1);color:var(--green);}
 .type-text{background:rgba(251,191,36,.1);color:var(--yellow);}
+.type-yesno{background:rgba(99,179,237,.12);color:#63b3ed;}
+.type-conditional{background:rgba(167,139,250,.15);color:#a78bfa;}
+.yn-branch-box{width:100%;margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--bg);}
+.yn-branch-title{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.yn-branch-title.yes{color:var(--green);}
+.yn-branch-title.no{color:#f87171;}
+.sub-q-row{display:flex;gap:6px;align-items:flex-start;margin-bottom:8px;}
+.sub-q-row textarea{flex:1;}
+.sub-q-type{font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;}
 .empty-state{text-align:center;padding:48px;color:var(--text-muted);font-size:14px;}
 /* Chart grid */
 .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
@@ -448,8 +457,8 @@ select.input-field{cursor:pointer;width:auto;}
 
         <!-- 경력별 비교 -->
         <div class="card" id="ana-career-card">
-          <div class="card-header"><div class="card-title">👤 경력별 비교</div>
-            <span style="font-size:12px;color:var(--text-muted);">경력 문항(주니어/시니어)이 설문에 포함된 경우 자동 활성화</span>
+          <div class="card-header"><div class="card-title">👤 전문가/비전문가 비교</div>
+            <span style="font-size:12px;color:var(--text-muted);">예/아니오·조건부 문항에서 "전문가/비전문가 구분 문항" 체크 시 자동 활성화</span>
           </div>
           <div id="ana-career"><div class="empty-state">경력 구분 문항이 설문에 없거나 응답이 부족합니다.</div></div>
         </div>
@@ -691,13 +700,16 @@ function getTaskLabel(q){
 function getDvOrTypeLabel(q){
   if(!q)return '문항';
   if(q.type==='ab')return 'A/B 선택';
+  if(q.type==='yesno')return '예/아니오'+(q.dvName?' · '+q.dvName:'');
+  if(q.type==='conditional')return '조건부';
   if(q.type==='text')return q.noDv?'서술형':'서술형'+(q.dvName?' · '+q.dvName:'');
-  return q.dvName||'종속변수 미지정';
+  return q.dvName||''; // 종속변수 미지정 시 빈 문자열
 }
 function getQuestionLabel(q){
   const text=(q&&q.text)?q.text:'';
   const reversed=(q&&q.type==='likert'&&q.reversed)?' [역문항]':'';
-  return getTaskLabel(q)+'_'+getDvOrTypeLabel(q)+reversed+' - '+text;
+  const dvPart=getDvOrTypeLabel(q);
+  return getTaskLabel(q)+(dvPart?'_'+dvPart:'')+reversed+' - '+text;
 }
 function getQuestionItems(){
   const items=[];let no=1;
@@ -724,7 +736,17 @@ function getCsvQuestionItems(){
     scItems.sort(function(a,b){return (a.q.scenario==='A'?0:1)-(b.q.scenario==='A'?0:1);});
     scPos.forEach(function(pos,i){qs[pos]=scItems[i];});
     qs.forEach(function(entry){
-      items.push({no:no++,k:'s'+si+'_q'+entry.origQi,q:entry.q,sec:s,si:si,qi:entry.origQi});
+      var q=entry.q,origQi=entry.origQi;
+      items.push({no:no++,k:'s'+si+'_q'+origQi,q:q,sec:s,si:si,qi:origQi});
+      // 조건부: 예/아니오 분기 서브문항도 순서대로 추가
+      if(q.type==='conditional'){
+        (q.yesQuestions||[]).forEach(function(sq,sqi){
+          items.push({no:no++,k:'s'+si+'_q'+origQi+'_yes_'+sqi,q:sq,sec:s,si:si,qi:origQi,isSubQ:true,branch:'yes',parentQ:q});
+        });
+        (q.noQuestions||[]).forEach(function(sq,sqi){
+          items.push({no:no++,k:'s'+si+'_q'+origQi+'_no_'+sqi,q:sq,sec:s,si:si,qi:origQi,isSubQ:true,branch:'no',parentQ:q});
+        });
+      }
     });
   });
   return items;
@@ -813,6 +835,33 @@ onValue(dbRef('live'),snap=>{
 });
 
 /* ─── DASHBOARD ─── */
+function renderSubQDashChart(sq,answers){
+  var label='<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">'+escapeHtml(sq.text||'')+'</div>';
+  if(sq.type==='likert'){
+    var vals=answers.map(function(a){var n=parseInt(a);return(sq.reversed&&n>=1&&n<=5)?6-n:n;});
+    var counts=[0,0,0,0,0];vals.forEach(function(v){if(v>=1&&v<=5)counts[v-1]++;});
+    var max=Math.max.apply(null,counts.concat([1]));
+    var avg2=(vals.reduce(function(s,v){return s+v;},0)/vals.length).toFixed(2);
+    return label+'<div style="display:flex;gap:4px;align-items:flex-end;height:40px;margin-bottom:4px;">'
+      +counts.map(function(cnt,i){return'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">'
+        +'<div style="font-size:9px;color:var(--text-muted);">'+cnt+'</div>'
+        +'<div style="width:100%;background:var(--accent);border-radius:2px;height:'+Math.round(cnt/max*28)+'px;min-height:'+(cnt?2:0)+'px;"></div>'
+        +'<div style="font-size:9px;color:var(--text-muted);">'+(i+1)+'</div></div>';}).join('')
+      +'</div><div style="font-size:10px;color:var(--text-muted);">평균 '+avg2+' · n='+vals.length+'</div>';
+  } else if(sq.type==='ab'){
+    var cA=answers.filter(function(a){return a==='A';}).length;
+    var cB=answers.filter(function(a){return a==='B';}).length;
+    var tot=cA+cB||1;
+    return label+'<div style="font-size:12px;">A: '+cA+'명 ('+Math.round(cA/tot*100)+'%) · B: '+cB+'명 ('+Math.round(cB/tot*100)+'%)</div>';
+  } else if(sq.type==='yesno'){
+    var cY=answers.filter(function(a){return a==='yes';}).length;
+    var cN=answers.filter(function(a){return a==='no';}).length;
+    var tot2=cY+cN||1;
+    return label+'<div style="font-size:12px;">예: '+cY+'명 ('+Math.round(cY/tot2*100)+'%) · 아니오: '+cN+'명 ('+Math.round(cN/tot2*100)+'%)</div>';
+  }
+  var filled=answers.filter(function(a){return a&&a.trim();});
+  return label+'<div style="font-size:12px;color:var(--text-muted);">서술형 '+filled.length+'건</div>';
+}
 function renderDashboard(){
   if(!qMeta?.sections)return;
   renderDvSummary();
@@ -851,6 +900,32 @@ function renderDashboard(){
           +'<div class="ab-block a-b"><div class="ab-lbl">A안 선택</div><div class="ab-n">'+cA+'</div><div class="ab-unit">명</div><div class="ab-pct">'+Math.round(cA/tot*100)+'%</div><div class="ab-micro">'+mA.slice(0,55)+(mA.length>55?'…':'')+'</div></div>'
           +'<div class="ab-block b-b"><div class="ab-lbl">B안 선택</div><div class="ab-n">'+cB+'</div><div class="ab-unit">명</div><div class="ab-pct">'+Math.round(cB/tot*100)+'%</div><div class="ab-micro">'+mB.slice(0,55)+(mB.length>55?'…':'')+'</div></div>'
           +'</div>';
+      }else if(q.type==='conditional'){
+        var cY=answers.filter(function(a){return a==='yes';}).length;
+        var cN=answers.filter(function(a){return a==='no';}).length;
+        var tot2=cY+cN||1;
+        var yl2=q.yesLabel||'예', nl2=q.noLabel||'아니오';
+        inner='<div class="ab-chart">'
+          +'<div class="ab-block a-b"><div class="ab-lbl">'+escapeHtml(yl2)+'</div><div class="ab-n">'+cY+'</div><div class="ab-unit">명</div><div class="ab-pct">'+Math.round(cY/tot2*100)+'%</div></div>'
+          +'<div class="ab-block b-b"><div class="ab-lbl">'+escapeHtml(nl2)+'</div><div class="ab-n">'+cN+'</div><div class="ab-unit">명</div><div class="ab-pct">'+Math.round(cN/tot2*100)+'%</div></div>'
+          +'</div>';
+        var parentKey2='s'+si+'_q'+qi;
+        var yResps=activeResp.filter(function(r){return r.answers?.[parentKey2]?.answer==='yes';});
+        var nResps=activeResp.filter(function(r){return r.answers?.[parentKey2]?.answer==='no';});
+        function renderBranchCharts(branchQs,resps,branchKey,branchColor,branchLbl){
+          if(!branchQs.length)return'';
+          var bHtml='<div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:8px;">'
+            +'<div style="font-size:11px;font-weight:600;color:'+branchColor+';margin-bottom:10px;">'+branchLbl+' ('+resps.length+'명)</div>';
+          branchQs.forEach(function(sq,sqi){
+            var subKey='s'+si+'_q'+qi+'_'+branchKey+'_'+sqi;
+            var subAns=resps.map(function(r){return r.answers?.[subKey]?.answer;}).filter(function(v){return v!=null&&v!=='';});
+            if(!subAns.length)return;
+            bHtml+=renderSubQDashChart(sq,subAns);
+          });
+          return bHtml+'</div>';
+        }
+        inner+=renderBranchCharts(q.yesQuestions||[],yResps,'yes','var(--green)','✓ '+escapeHtml(yl2));
+        inner+=renderBranchCharts(q.noQuestions||[],nResps,'no','#f87171','✗ '+escapeHtml(nl2));
       }else if(q.type==='text'){
         const filled=answers.filter(a=>a&&a.trim());
         inner='<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">서술형 응답 <strong style="color:var(--text)">'+filled.length+'</strong>건</div>';
@@ -1019,6 +1094,8 @@ function renderEditor(){
       +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'likert\')">+ 리커트</button>'
       +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'ab\')">+ A/B 선택</button>'
       +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'text\')">+ 서술형</button>'
+      +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'yesno\')">+ 예/아니오</button>'
+      +'<button class="btn btn-ghost btn-sm" onclick="addQ('+si+',\'conditional\')" style="color:#a78bfa;border-color:#a78bfa33;">+ 조건부</button>'
       +'</div>';
     c.appendChild(el);
     renderQs(si, Array.isArray(sec.questions)?sec.questions:[]);
@@ -1037,8 +1114,8 @@ function renderQs(si,qs){
 
   qs.forEach(function(q,qi){
     const key=si+'-'+qi;
-    const tC=q.type==='likert'?'type-likert':q.type==='ab'?'type-ab':'type-text';
-    const tL=q.type==='likert'?'5점 리커트'+(q.scenario?' ['+q.scenario+']':''):q.type==='ab'?'A/B 선택':'서술형';
+    const tC=q.type==='likert'?'type-likert':q.type==='ab'?'type-ab':q.type==='yesno'?'type-yesno':q.type==='conditional'?'type-conditional':'type-text';
+    const tL=q.type==='likert'?'5점 리커트'+(q.scenario?' ['+q.scenario+']':''):q.type==='ab'?'A/B 선택':q.type==='yesno'?'예/아니오':q.type==='conditional'?'조건부':'서술형';
     const el=document.createElement('div');
     el.className='q-editor'+(reorderMode&&selectedQs.has(key)?' selected':'');
     el.dataset.key=key;el.dataset.si=si;el.dataset.qi=qi;
@@ -1066,6 +1143,42 @@ function renderQs(si,qs){
         +'</select>';
     }
     if(q.type==='text')extra+='<label class="chk-row"><input type="checkbox" '+(q.noDv?'checked':'')+' onchange="upQ('+si+','+qi+',\'noDv\',this.checked);renderEditor()"> 종속변수 없음</label>';
+    // 단순 예/아니오: 버튼 텍스트만 설정 (서브문항 없음)
+    if(q.type==='yesno'){
+      var ynyl=q.yesLabel||'예', ynnl=q.noLabel||'아니오';
+      extra+='<div style="width:100%;margin-top:10px;display:flex;flex-direction:column;gap:8px;">'
+        +'<div style="display:flex;gap:8px;align-items:center;">'
+        +'<label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">✓ 예 버튼 텍스트</label>'
+        +'<input class="input-field" style="font-size:12px;flex:1;" value="'+escapeHtml(ynyl)+'" oninput="upQ('+si+','+qi+',\'yesLabel\',this.value)">'
+        +'<label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">✗ 아니오 버튼 텍스트</label>'
+        +'<input class="input-field" style="font-size:12px;flex:1;" value="'+escapeHtml(ynnl)+'" oninput="upQ('+si+','+qi+',\'noLabel\',this.value)">'
+        +'</div>'
+        +'<label class="chk-row" style="font-size:12px;"><input type="checkbox" '+(q.isExpertFilter?'checked':'')+' onchange="upQ('+si+','+qi+',\'isExpertFilter\',this.checked)"> 전문가/비전문가 구분 문항 <span style="font-size:10px;color:var(--text-muted);">(예 = 전문가, 아니오 = 비전문가)</span></label>'
+        +'</div>';
+    }
+    // 조건부: 버튼 텍스트 + 분기별 서브문항
+    if(q.type==='conditional'){
+      var yl=q.yesLabel||'예', nl=q.noLabel||'아니오';
+      extra+='<div style="width:100%;margin-top:10px;display:flex;flex-direction:column;gap:8px;">'
+        +'<div style="display:flex;gap:8px;align-items:center;">'
+        +'<label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">✓ 예 버튼 텍스트</label>'
+        +'<input class="input-field" style="font-size:12px;flex:1;" value="'+escapeHtml(yl)+'" oninput="upQ('+si+','+qi+',\'yesLabel\',this.value)">'
+        +'<label style="font-size:12px;color:var(--text-muted);white-space:nowrap;">✗ 아니오 버튼 텍스트</label>'
+        +'<input class="input-field" style="font-size:12px;flex:1;" value="'+escapeHtml(nl)+'" oninput="upQ('+si+','+qi+',\'noLabel\',this.value)">'
+        +'</div>'
+        +'<label class="chk-row" style="font-size:12px;"><input type="checkbox" '+(q.isExpertFilter?'checked':'')+' onchange="upQ('+si+','+qi+',\'isExpertFilter\',this.checked)"> 전문가/비전문가 구분 문항 <span style="font-size:10px;color:var(--text-muted);">(예 = 전문가, 아니오 = 비전문가)</span></label>'
+        +'<div class="yn-branch-box">'
+        +'<div class="yn-branch-title yes">✓ "'+escapeHtml(yl)+'" 답변 시 노출 문항</div>'
+        +(q.yesQuestions||[]).map(function(sq,sqi){return renderSubQEditorHtml(si,qi,'yes',sqi,sq);}).join('')
+        +'<button class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="addSubQ('+si+','+qi+',\'yes\')">+ 문항 추가</button>'
+        +'</div>'
+        +'<div class="yn-branch-box">'
+        +'<div class="yn-branch-title no">✗ "'+escapeHtml(nl)+'" 답변 시 노출 문항</div>'
+        +(q.noQuestions||[]).map(function(sq,sqi){return renderSubQEditorHtml(si,qi,'no',sqi,sq);}).join('')
+        +'<button class="btn btn-ghost btn-sm" style="margin-top:4px;" onclick="addSubQ('+si+','+qi+',\'no\')">+ 문항 추가</button>'
+        +'</div>'
+        +'</div>';
+    }
     if(q.type==='ab'){
       extra+='<div style="width:100%;margin-top:10px;display:flex;flex-direction:column;gap:6px;">'
         +'<label style="font-size:12px;color:var(--text-muted);">시나리오 A 문항</label>'
@@ -1074,7 +1187,7 @@ function renderQs(si,qs){
         +'<textarea class="input-field" rows="2" placeholder="시나리오 B일 때 노출되는 문항" oninput="upQ('+si+','+qi+',\'textB\',this.value)">'+(q.textB||'')+'</textarea>'
         +'</div>';
     }
-    const showDv=q.type!=='ab'&&!(q.type==='text'&&q.noDv);
+    const showDv=q.type!=='ab'&&q.type!=='conditional'&&!(q.type==='text'&&q.noDv);
 
     el.innerHTML='<div class="q-row">'
       +'<div class="q-reorder-handle" title="드래그하여 이동">⠿</div>'
@@ -1265,7 +1378,57 @@ window.upSec=function(si,f,v){curSecs[si][f]=v;};
 window.upQ=function(si,qi,f,v){curSecs[si].questions[qi][f]=v;};
 window.addSection=function(){curSecs.push({tag:'',title:'',questions:[]});renderEditor();};
 window.rmSec=function(si){if(confirm('섹션을 삭제할까요?')){curSecs.splice(si,1);renderEditor();}};
-window.addQ=function(si,type){curSecs[si].questions.push({type:type,text:'',required:true,taskNum:'',dvName:'',reversed:false,noDv:false,scenario:'',textA:'',textB:''});renderEditor();};
+window.addQ=function(si,type){
+  var q={type:type,text:'',required:true,taskNum:'',dvName:'',reversed:false,noDv:false,scenario:'',textA:'',textB:''};
+  if(type==='yesno'||type==='conditional'){q.yesLabel='예';q.noLabel='아니오';q.isExpertFilter=false;}
+  if(type==='conditional'){q.yesQuestions=[];q.noQuestions=[];}
+  curSecs[si].questions.push(q);renderEditor();
+};
+function renderSubQEditorHtml(si,qi,branch,sqi,sq){
+  var types=['likert','ab','text','yesno'];
+  var typeLabels={likert:'리커트',ab:'A/B',text:'서술형',yesno:'예/아니오'};
+  var typeOpts=types.map(function(t){return'<option value="'+t+'" '+(sq.type===t?'selected':'')+'>'+typeLabels[t]+'</option>';}).join('');
+  // 종속변수 드롭다운 (yesno 제외)
+  var dvHtml='';
+  if(sq.type!=='yesno'){
+    var dvOpts='<option value="">종속변수 없음</option>'+curDvars.map(function(dv){return'<option value="'+dv.name+'" '+(sq.dvName===dv.name?'selected':'')+'>'+dv.name+'</option>';}).join('');
+    dvHtml='<label style="font-size:11px;color:var(--text-muted);white-space:nowrap;">종속변수</label>'
+      +'<select class="input-field" style="font-size:12px;" onchange="upSubQ('+si+','+qi+',\''+branch+'\','+sqi+',\'dvName\',this.value)">'+dvOpts+'</select>';
+  }
+  // 역문항 체크박스 (리커트만)
+  var revHtml=sq.type==='likert'
+    ?'<label class="chk-row" style="font-size:11px;"><input type="checkbox" '+(sq.reversed?'checked':'')+' onchange="upSubQ('+si+','+qi+',\''+branch+'\','+sqi+',\'reversed\',this.checked)"> 역문항</label>'
+    :'';
+  // 예/아니오 버튼 텍스트
+  var ynExtra=sq.type==='yesno'
+    ?'<div style="display:flex;gap:6px;margin-top:4px;">'
+      +'<input class="input-field" style="font-size:11px;flex:1;" placeholder="예 버튼 텍스트" value="'+(sq.yesLabel||'예')+'" oninput="upSubQ('+si+','+qi+',\''+branch+'\','+sqi+',\'yesLabel\',this.value)">'
+      +'<input class="input-field" style="font-size:11px;flex:1;" placeholder="아니오 버튼 텍스트" value="'+(sq.noLabel||'아니오')+'" oninput="upSubQ('+si+','+qi+',\''+branch+'\','+sqi+',\'noLabel\',this.value)">'
+      +'</div>'
+    :'';
+  return'<div class="sub-q-row" style="flex-direction:column;align-items:stretch;margin-bottom:10px;">'
+    +'<div style="display:flex;gap:6px;align-items:flex-start;">'
+    +'<select class="sub-q-type" onchange="upSubQ('+si+','+qi+',\''+branch+'\','+sqi+',\'type\',this.value);renderQs('+si+',curSecs['+si+'].questions)">'+typeOpts+'</select>'
+    +'<textarea class="input-field" rows="2" placeholder="문항 내용" oninput="upSubQ('+si+','+qi+',\''+branch+'\','+sqi+',\'text\',this.value)">'+(sq.text||'')+'</textarea>'
+    +'<button class="btn btn-danger btn-sm" onclick="rmSubQ('+si+','+qi+',\''+branch+'\','+sqi+')">✕</button>'
+    +'</div>'
+    +(dvHtml||revHtml?'<div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;">'+dvHtml+revHtml+'</div>':'')
+    +ynExtra+'</div>';
+}
+window.addSubQ=function(si,qi,branch){
+  var bk=branch==='yes'?'yesQuestions':'noQuestions';
+  if(!curSecs[si].questions[qi][bk])curSecs[si].questions[qi][bk]=[];
+  curSecs[si].questions[qi][bk].push({type:'likert',text:'',reversed:false,dvName:''});
+  renderQs(si,curSecs[si].questions);
+};
+window.rmSubQ=function(si,qi,branch,sqi){
+  var bk=branch==='yes'?'yesQuestions':'noQuestions';
+  curSecs[si].questions[qi][bk].splice(sqi,1);renderQs(si,curSecs[si].questions);
+};
+window.upSubQ=function(si,qi,branch,sqi,field,value){
+  var bk=branch==='yes'?'yesQuestions':'noQuestions';
+  curSecs[si].questions[qi][bk][sqi][field]=value;
+};
 window.rmQ=function(si,qi){
   if(reorderMode&&selectedQs.size>=2&&selectedQs.has(si+'-'+qi)){doDeleteSelected();return;}
   curSecs[si].questions.splice(qi,1);renderEditor();
@@ -1668,6 +1831,7 @@ window.exportCsv=function(){
     '로그_행동 로그 - [Task 4] 시나리오 B 수용 빈도'
   ];
   const headers=['응답자 이름','제출시각','최초 시나리오'].concat(qItems.map(function(item){
+    if(item.isSubQ){return getQuestionLabel(item.q);}
     return item.no+'. '+getQuestionLabel(item.q);
   })).concat(logHeaders);
   const rows=[headers];
@@ -1678,7 +1842,15 @@ window.exportCsv=function(){
     const row=[getRespondentName(r,idx),r.submittedAt||'',sc0?'시나리오 '+sc0:''];
     qItems.forEach(function(item){
       const a=r.answers?.[item.k];
-      row.push(a?.answer??'');
+      if(item.isSubQ){
+        // 서브문항: 해당 분기를 선택했으면 답변, 아니면 '-'
+        var parentKey='s'+item.si+'_q'+item.qi;
+        var parentAns=r.answers?.[parentKey]?.answer;
+        if(!parentAns){row.push('');return;}
+        row.push(parentAns===item.branch?(a?.answer??''):'-');
+      } else {
+        row.push(a?.answer??'');
+      }
     });
     /* == 로그 컬럼 == */
     const sName=getRespondentName(r,idx);
@@ -1878,8 +2050,60 @@ function renderAnalytics(){
     mHtml+='</div>';
     document.getElementById('ana-micro').innerHTML=mHtml;
   }
-  // Career
-  document.getElementById('ana-career').innerHTML='<div class="empty-state">경력 구분 문항(주니어/시니어 등 키워드 포함)이 설문에 없습니다.</div>';
+  // 전문가/비전문가 비교
+  var expertFilterItem=null;
+  getCsvQuestionItems().forEach(function(item){
+    if(!item.isSubQ&&(item.q.type==='yesno'||item.q.type==='conditional')&&item.q.isExpertFilter)expertFilterItem=item;
+  });
+  if(!expertFilterItem){
+    document.getElementById('ana-career').innerHTML='<div class="empty-state">전문가/비전문가 구분 문항이 없습니다. 예/아니오 문항 편집에서 "전문가/비전문가 구분 문항"을 체크해주세요.</div>';
+  } else {
+    var efKey=expertFilterItem.k;
+    var expertResps=activeResp.filter(function(r){return r.answers?.[efKey]?.answer==='yes';});
+    var nonExpertResps=activeResp.filter(function(r){return r.answers?.[efKey]?.answer==='no';});
+    var efYL=expertFilterItem.q.yesLabel||'예';
+    var efNL=expertFilterItem.q.noLabel||'아니오';
+    if(!expertResps.length&&!nonExpertResps.length){
+      document.getElementById('ana-career').innerHTML='<div class="empty-state">구분 문항에 응답한 데이터가 없습니다.</div>';
+    } else {
+      var cHtml='<div style="margin-bottom:16px;display:flex;gap:16px;">'
+        +'<div class="ana-kpi" style="flex:1;"><div class="ana-kpi-label">'+escapeHtml(efYL)+' (전문가)</div><div class="ana-kpi-val" style="color:var(--green);">'+expertResps.length+'명</div></div>'
+        +'<div class="ana-kpi" style="flex:1;"><div class="ana-kpi-label">'+escapeHtml(efNL)+' (비전문가)</div><div class="ana-kpi-val" style="color:var(--yellow);">'+nonExpertResps.length+'명</div></div>'
+        +'</div>';
+      // DV별 전문가 vs 비전문가 비교
+      var compDvs={};
+      getCsvQuestionItems().forEach(function(item){
+        if(item.isSubQ||item.q.type!=='likert'||!item.q.dvName)return;
+        if(!compDvs[item.q.dvName])compDvs[item.q.dvName]={eVals:[],nVals:[]};
+        expertResps.forEach(function(r){var a=r.answers?.[item.k]?.answer;if(a!=null&&a!==''){var v=parseInt(a);if(item.q.reversed&&v>=1&&v<=5)v=6-v;compDvs[item.q.dvName].eVals.push(v);}});
+        nonExpertResps.forEach(function(r){var a=r.answers?.[item.k]?.answer;if(a!=null&&a!==''){var v=parseInt(a);if(item.q.reversed&&v>=1&&v<=5)v=6-v;compDvs[item.q.dvName].nVals.push(v);}});
+      });
+      var dvEntries=Object.entries(compDvs).filter(function(e){return e[1].eVals.length||e[1].nVals.length;});
+      if(dvEntries.length){
+        cHtml+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">';
+        dvEntries.forEach(function(entry){
+          var dvName=entry[0],g=entry[1];
+          var eAvg=g.eVals.length?g.eVals.reduce(function(s,v){return s+v;},0)/g.eVals.length:null;
+          var nAvg=g.nVals.length?g.nVals.reduce(function(s,v){return s+v;},0)/g.nVals.length:null;
+          var ePct=eAvg?eAvg/5*100:0, nPct=nAvg?nAvg/5*100:0;
+          var diff=eAvg&&nAvg?eAvg-nAvg:null;
+          var diffStr=diff!==null?(diff>0.05?'+'+diff.toFixed(2):diff<-0.05?diff.toFixed(2):'≈0'):null;
+          var diffCls=diff>0.05?'diff-pos':diff<-0.05?'diff-neg':'diff-neu';
+          cHtml+='<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">'
+            +'<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:10px;">'+escapeHtml(dvName)+'</div>'
+            +'<div class="ab-dv-bars">'
+            +'<div class="ab-dv-bar-row"><div class="ab-dv-bar-lbl a" style="color:var(--green);font-size:10px;line-height:1.3;min-width:36px;">전문가<br><span style="color:var(--text-muted);">n='+g.eVals.length+'</span></div><div class="ab-dv-bar-track"><div class="ab-dv-bar-fill-a" style="width:'+ePct+'%"></div></div><div class="ab-dv-bar-score" style="color:var(--green);">'+(eAvg?eAvg.toFixed(2):'—')+'</div></div>'
+            +'<div class="ab-dv-bar-row" style="margin-top:6px;"><div class="ab-dv-bar-lbl b" style="color:var(--yellow);font-size:10px;line-height:1.3;min-width:36px;">비전문가<br><span style="color:var(--text-muted);">n='+g.nVals.length+'</span></div><div class="ab-dv-bar-track"><div class="ab-dv-bar-fill-b" style="width:'+nPct+'%"></div></div><div class="ab-dv-bar-score" style="color:var(--yellow);">'+(nAvg?nAvg.toFixed(2):'—')+'</div></div>'
+            +'</div>'+(diffStr?'<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">차이 <span class="diff-badge '+diffCls+'">'+diffStr+'</span></div>':'')
+            +'</div>';
+        });
+        cHtml+='</div>';
+      } else {
+        cHtml+='<div class="empty-state" style="padding:20px;">종속변수가 연결된 리커트 문항이 없습니다.</div>';
+      }
+      document.getElementById('ana-career').innerHTML=cHtml;
+    }
+  }
 }
 </script>
 </body>
