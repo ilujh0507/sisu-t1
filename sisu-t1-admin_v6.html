@@ -969,27 +969,30 @@ function formatSecs(s){var m=Math.floor(s/60),r=s%60;if(m>0&&r>0)return m+'분 '
 // 스크리닝 기준 시간 (350자/분 기준, 단위: 초)
 // [세션 배정 시나리오 기준, 토글 시나리오 기준]
 var DWELL_THRESH={T1_A:[25,10],T1_B:[30,15],T2_A:[25,10],T2_B:[25,10],T3_A:[20,10],T3_B:[25,10],T4_A:[20,10],T4_B:[25,15]};
-function buildDwellBoxes(dt,sessionScenario){
+function buildDwellBoxes(dt,sessionScenario,behaviorLogs){
   if(!dt)return'';
   var bs='background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 10px;';
+  var bl=behaviorLogs||{};
   return'<div style="margin:4px 0 10px"><div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;">⏱ 체류 시간 (스크리닝)</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">'+
     ['T1','T2','T3','T4'].map(function(t){
+      // 태스크별 배정 시나리오 우선 사용 (per-task random), 없으면 세션 시나리오 폴백
+      var taskAssigned=bl['conditionAssigned_'+t]||null;
+      var effectiveSc=taskAssigned||sessionScenario||null;
       return'<div style="'+bs+'"><div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Task '+t.slice(1)+'</div>'+
         ['A','B'].map(function(ab,abIdx){
           var key=t+'_'+ab;
           var secs=dt[key]||0;
           var tr=DWELL_THRESH[key]||[30,20];
-          // 세션 배정 시나리오면 첫 번째(더 높은) 기준, 토글이면 두 번째 기준
-          var isFirst=sessionScenario?ab===sessionScenario:ab==='A';
+          // 태스크별 배정 시나리오 기준으로 isFirst 판단
+          var isFirst=effectiveSc?ab===effectiveSc:ab==='A';
           var thresh=isFirst?tr[0]:tr[1];
           var never=secs===0&&!isFirst; // 방문 안 한 토글 시나리오
           var pass=!never&&secs>=thresh;
-          var fail=!never&&secs<thresh;
           var timeStr=never?'미방문':formatSecs(secs);
           var timeColor=never?'var(--text-muted)':pass?'var(--green)':'#f87171';
           var badge=never?'':pass?'✓':'✗';
           var badgeColor=pass?'var(--green)':'#f87171';
-          var isFirst_label=sessionScenario&&isFirst?'<span style="font-size:8.5px;color:var(--text-muted);margin-left:3px;">배정</span>':'';
+          var isFirst_label=effectiveSc&&isFirst?'<span style="font-size:8.5px;color:var(--text-muted);margin-left:3px;">배정</span>':'';
           return'<div style="display:flex;align-items:center;justify-content:space-between;'+(abIdx===1?'border-top:1px solid var(--border);margin-top:5px;padding-top:5px;':'')+'">'+
             '<div>'+
               '<span style="font-size:10px;color:var(--text-muted);font-family:monospace;font-weight:600;">'+ab+'</span>'+isFirst_label+
@@ -1062,7 +1065,7 @@ function renderLive(){
       const valBig=val.replace('class="live-val ','class="live-val-big ').replace('class="live-val"','class="live-val-big"');
       return'<div class="live-row"><div class="live-row-left"><span class="live-key">'+escapeHtml(tagPart)+'</span><div class="live-qtxt">'+escapeHtml(qPart)+'</div></div><div class="live-row-right">'+valBig+'<span class="live-chts-right">'+ts+'</span></div></div>';
     }).filter(Boolean).join('');
-    const dwellRow=buildDwellBoxes(s.dwellTimes,s.sessionScenario||(s.behaviorLogs&&s.behaviorLogs.sessionScenario));
+    const dwellRow=buildDwellBoxes(s.dwellTimes,s.sessionScenario||(s.behaviorLogs&&s.behaviorLogs.sessionScenario),s.behaviorLogs||{});
     const finalSelRow=buildFinalSelRow(s.finalSelection);
     const condAssignedRow=buildConditionAssignedBoxes(s);
     const behaviorRow=buildBehaviorBoxes(s.behaviorLogs||{});
@@ -1804,7 +1807,7 @@ function respCard(r,i,mode){
   // sessionId가 있으면 ID로 직접 조인 (동명이인·재참여 완전 안전), 없으면 이름 폴백
   const _sess=(r.sessionId&&sessionsById[r.sessionId])||sessionsByName[_sName]||{};
   const _sessDone=_sess.phase==='done'||_sess.phase==='survey';
-  const _sessHtml=buildConditionAssignedBoxes(_sess)+buildDwellBoxes(_sess.dwellTimes,_sess.sessionScenario||(_sess.behaviorLogs&&_sess.behaviorLogs.sessionScenario))+buildFinalSelRow(_sess.finalSelection)+buildBehaviorBoxes(_sess.behaviorLogs||{},_sessDone);rowHtml=_sessHtml+rowHtml;
+  const _sessHtml=buildConditionAssignedBoxes(_sess)+buildDwellBoxes(_sess.dwellTimes,_sess.sessionScenario||(_sess.behaviorLogs&&_sess.behaviorLogs.sessionScenario),_sess.behaviorLogs||{})+buildFinalSelRow(_sess.finalSelection)+buildBehaviorBoxes(_sess.behaviorLogs||{},_sessDone);rowHtml=_sessHtml+rowHtml;
   const btns=mode==='active'
     ?'<button class="btn btn-warn btn-sm" onclick="toTrash(\''+r._key+'\')">🗑 휴지통</button>'
     :'<button class="btn btn-success btn-sm" onclick="fromTrash(\''+r._key+'\')">↩ 복원</button><button class="btn btn-danger btn-sm" onclick="permDel(\''+r._key+'\')">영구 삭제</button>';

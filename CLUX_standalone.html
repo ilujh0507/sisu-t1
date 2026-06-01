@@ -5892,6 +5892,7 @@ function Task4({ condition, state, setState }) {
               // 최종 선택 기록 — 완료 시점의 각 Task A/B 확정값 전송
               sendT4Counts();
               if (typeof window.__sendDwell === 'function') window.__sendDwell();
+              if (typeof window.__stopDwell === 'function') window.__stopDwell(); // 완료 후 타이머 즉시 정지
               if (window.self !== window.top)
                 window.parent.postMessage({ type:'CLUX_FINAL_SELECTION', conditions: window.__appConditions || {}, t1B: window.__t1BLastAction || null }, '*');
               // Show completion modal
@@ -6965,6 +6966,22 @@ function App() {
       if (!e.data || e.data.type !== 'CLUX_SESSION_SCENARIO') return;
       const sc = e.data.scenario === 'B' ? 'B' : 'A';
       clearTimeout(scenarioFallbackRef.current);
+      // 새 세션 시작 — 체류시간 누산기 및 앱 상태 완전 초기화 (iframe 미재로드 시 이전 세션 값 혼입 방지)
+      const r = dwellRef.current;
+      r.acc = {T1_A:0,T1_B:0,T2_A:0,T2_B:0,T3_A:0,T3_B:0,T4_A:0,T4_B:0};
+      r.enterTime = null; r.curKey = null;
+      setState({
+        projectStarted: false,
+        project: { name: '', goal: '', target: '' },
+        progress: 0.06,
+        conditions: { T1: sc, T2: sc, T3: sc, T4: sc },
+        t1: { insightsLocked: false },
+        t2: { hmw: '', hmwLocked: false },
+        t3: { conceptCount: 0 }
+      });
+      setConditions({ T1: sc, T2: sc, T3: sc, T4: sc });
+      setActive(TAB_DEFS[0]);
+      setShowSummary(false);
       setSessionScenario(sc);
     };
     window.addEventListener('message', handler);
@@ -6985,6 +7002,8 @@ function App() {
   React.useEffect(() => {window.__appState = state;}, [state]);
   React.useEffect(() => {window.__appConditions = conditions;}, [conditions]);
   React.useEffect(() => {window.__sendDwell = sendDwell;}, [sendDwell]);
+  // T4 완료 후 타이머 정지용 — 완료 이후 탭 전환 등으로 인한 시간 누적 방지
+  React.useEffect(() => {window.__stopDwell = () => { dwellRef.current.enterTime = null; };}, []);
 
   // 탭 변경 시 session.html에 CLUX_TASK_CHANGE 알림 (TopBar 직접 변경 + goToTab 양쪽 커버)
   React.useEffect(() => {
