@@ -547,7 +547,7 @@ function submitForm(){
   }
   var sid=SESSION_ID.replace('live_','');
   var newRef=push(dbRef('responses'));
-  set(newRef,{respondentName:respondentName,answers:answers,submittedAt:new Date().toISOString(),sessionId:sid})
+  set(newRef,{respondentName:respondentName,answers:answers,submittedAt:new Date().toISOString(),sessionId:sid,sessionScenario:surveyScenario||null})
   .then(function(){
     return update(liveRef,{status:'submitted',respondentName:respondentName,submittedAt:new Date().toISOString()});
   }).then(function(){
